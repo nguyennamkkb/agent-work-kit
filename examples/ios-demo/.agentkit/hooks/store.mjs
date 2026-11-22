@@ -4,7 +4,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { read, readJson, writeAtomic, withLock, today, nowIso, DESK, findManifest, words, STOP, listReview, parseRules, LOCAL_RULES } from './_lib.mjs';
+import { read, readJson, writeAtomic, withLock, today, nowIso, DESK, findManifest, words, STOP, listReview, parseRules, LOCAL_RULES, git, mainRoot } from './_lib.mjs';
 
 export const VERSION = 2;
 export const TASK_OPEN = ['inbox', 'todo', 'doing', 'waiting', 'review'];
@@ -49,16 +49,26 @@ function normalize(d) {
   return d;
 }
 
-/** Load → change → save, under the desk lock; snapshot the previous state for `undo`. Returns fn's result. */
-export function mutate(droot, op, fn) {
+const sameAs = (desk) => JSON.stringify({ ...desk, updated: undefined });
+
+/**
+ * Load → change → save, under the desk lock. Nothing changed → nothing is written.
+ * Real changes snapshot the previous state for `undo` and re-render DESK.md and desk.html.
+ * Bookkeeping (`{ bookkeeping: true }`, or fn returning `{ bookkeeping: true }`: counters the hooks bump)
+ * writes desk.json only — no undo snapshot, no re-render. Returns fn's result.
+ */
+export function mutate(droot, op, fn, { bookkeeping = false } = {}) {
   const p = paths(droot);
   return withLock(p.dir, () => {
     const before = read(p.json);
     const desk = load(droot);
+    const prev = sameAs(desk);
     const res = fn(desk);
     if (res && res.noop) return res;
-    if (before != null && op !== 'undo') snapshot(droot, op, before);
-    save(droot, desk);
+    if (before != null && sameAs(desk) === prev) return res;
+    const light = bookkeeping || !!(res && res.bookkeeping);
+    if (before != null && op !== 'undo' && !light) snapshot(droot, op, before);
+    save(droot, desk, { views: !light });
     return res;
   });
 }
@@ -71,12 +81,13 @@ function snapshot(droot, op, text) {
   for (const f of all.slice(0, Math.max(0, all.length - CAPS.undo))) fs.rmSync(path.join(dir, f), { force: true });
 }
 
-export function save(droot, desk) {
+export function save(droot, desk, { views = true } = {}) {
   const p = paths(droot);
   desk.version = VERSION;
   desk.updated = nowIso();
   archiveClosed(droot, desk);
   writeAtomic(p.json, JSON.stringify(desk, null, 2) + '\n');
+  if (!views) return;
   try {
     writeAtomic(p.md, renderMd(droot, desk));
     renderHtml(droot, desk);
@@ -126,28 +137,12 @@ function newItem(desk, kind, fields) {
 }
 
 // ---------------------------------------------------------------- task operations
-/** Everything a dep id can refer to that is finished (on the desk or archived). */
-function closedIds(droot) {
-  const out = new Map();
-  for (const l of (read(paths(droot).archive) ?? '').split('\n')) {
-    if (!l) continue;
-    try {
-      const e = JSON.parse(l);
-      out.set(e.id, e.status);
-    } catch {
-      /* skip */
-    }
-  }
-  return out;
-}
 export function depsOpen(droot, desk, t) {
   const byId = new Map(desk.items.map((i) => [i.id, i]));
-  let arch = null;
   return (t.deps ?? []).filter((d) => {
     const x = byId.get(d);
     if (x) return x.status !== 'done';
-    arch ??= closedIds(droot);
-    return arch.get(d) !== 'done';
+    return findArchived(droot, d)?.status !== 'done';
   });
 }
 export const openKids = (desk, t) => tasks(desk).filter((k) => k.parent === t.id && !TASK_CLOSED.includes(k.status));
@@ -320,7 +315,7 @@ export function wakeWaiting(droot, desk) {
   const byId = new Map(desk.items.map((i) => [i.id, i]));
   for (const t of tasks(desk, 'waiting')) {
     const dep = /^Q-\d+$/.test(t.on ?? '') ? byId.get(t.on) : null;
-    const depDone = dep ? dep.status === 'done' : /^Q-\d+$/.test(t.on ?? '') && closedIds(droot).get(t.on) === 'done';
+    const depDone = dep ? dep.status === 'done' : /^Q-\d+$/.test(t.on ?? '') && findArchived(droot, t.on)?.status === 'done';
     const due = t.until && t.until <= today();
     if (depDone || due) {
       const why = depDone ? `${t.on} done` : `until ${t.until} reached`;
@@ -505,7 +500,7 @@ export function bumpMatches(desk, { text = '', file = null } = {}) {
       yes = n >= 2 && n >= Math.min(own.size, 3) * 0.6;
     }
     if (yes) {
-      it.uses = (it.uses ?? 0) + 1;
+      if (it.last !== today()) it.uses = (it.uses ?? 0) + 1; // at most once a day: steady diffs, honest counts
       it.last = today();
       hit.push(it);
     }
@@ -514,32 +509,48 @@ export function bumpMatches(desk, { text = '', file = null } = {}) {
 }
 
 // ---------------------------------------------------------------- archive (closed items leave the desk)
+// archive/YYYY-MM.md: one human line per closed task. archive/YYYY-MM.jsonl: one compact summary per closed or
+// retired item (no history), read newest month first. Legacy .desk/archive.jsonl is folded in by `compact`.
+const archDir = (droot) => path.join(droot, DESK, 'archive');
+const startedAt = (t) => (t.history ?? []).find((h) => h.status === 'doing')?.at;
+const failsOf = (t) => (t.history ?? []).filter((h) => h.status === 'failed' || /^dispatched .*fails=/.test(h.note ?? '')).length;
+export function summary(t, closedAt = null) {
+  return clean({
+    id: t.id, kind: t.kind, status: t.kind === 'task' ? t.status : 'archived', prio: t.prio, text: t.text, done: t.done,
+    proof: t.proof, why: t.why, sha: t.sha, plan: t.plan, role: t.role, executor: t.executor, agent: t.agent, model: t.model,
+    route: t.route, parent: t.parent, created: t.created, started: startedAt(t), closed: closedAt ?? t.history?.at(-1)?.at ?? nowIso(),
+    fails: failsOf(t) || undefined, uses: t.uses, seen: t.seen, pin: t.pin,
+  });
+}
+function appendArchive(droot, sum) {
+  const f = path.join(archDir(droot), `${String(sum.closed).slice(0, 7)}.jsonl`);
+  fs.mkdirSync(path.dirname(f), { recursive: true });
+  fs.appendFileSync(f, JSON.stringify(sum) + '\n');
+}
 function archiveClosed(droot, desk) {
-  const p = paths(droot);
   const closed = desk.items.filter((i) => i.kind === 'task' && TASK_CLOSED.includes(i.status));
   for (const t of closed) {
     if (t.archived) continue;
     t.archived = today();
     const line = `- ${today()} ${ICON[t.status]} ${t.id} ${t.prio} ${t.text}${t.proof ? ` — ${t.proof}` : ''}${t.why ? ` — ${t.why}` : ''}${t.sha ? ` @${t.sha}` : ''}\n`;
-    const md = path.join(p.dir, 'archive', `${today().slice(0, 7)}.md`);
+    const md = path.join(archDir(droot), `${today().slice(0, 7)}.md`);
     fs.mkdirSync(path.dirname(md), { recursive: true });
     fs.appendFileSync(md, (fs.existsSync(md) ? '' : `# Archive ${today().slice(0, 7)}\n\n`) + line);
-    fs.appendFileSync(p.archive, JSON.stringify({ id: t.id, status: t.status, at: nowIso(), item: t }) + '\n');
+    appendArchive(droot, summary(t));
   }
   const keep = new Set(
     [...closed]
-      .sort((a, b) => String(b.history?.at(-1)?.at ?? '').localeCompare(String(a.history?.at(-1)?.at ?? '')))
+      .sort((a, b) => String(b.history?.at(-1)?.at ?? '').localeCompare(String(a.history?.at(-1)?.at ?? '')) || idNum(b) - idNum(a))
       .slice(0, CAPS.keepClosed)
       .map((t) => t.id),
   );
   desk.items = desk.items.filter((i) => !(i.kind === 'task' && TASK_CLOSED.includes(i.status) && !keep.has(i.id)));
 }
 
-export function archived(droot, n = 20) {
-  return (read(paths(droot).archive) ?? '')
+const parseLines = (text) =>
+  (text ?? '')
     .split('\n')
     .filter(Boolean)
-    .slice(-n)
     .map((l) => {
       try {
         return JSON.parse(l);
@@ -548,6 +559,148 @@ export function archived(droot, n = 20) {
       }
     })
     .filter(Boolean);
+const monthFiles = (droot) => {
+  try {
+    return fs.readdirSync(archDir(droot)).filter((f) => /^\d{4}-\d\d\.jsonl$/.test(f)).sort().reverse();
+  } catch {
+    return [];
+  }
+};
+const legacy = (droot) => parseLines(read(paths(droot).archive)).map((e) => ({ ...summary(e.item ?? e, e.at), status: e.status ?? e.item?.status }));
+
+/** The latest archived summary of an id, scanning newest month first; stops at the first hit. */
+export function findArchived(droot, id) {
+  for (const f of monthFiles(droot)) {
+    const hit = parseLines(read(path.join(archDir(droot), f))).filter((e) => e.id === id).at(-1);
+    if (hit) return hit;
+  }
+  return legacy(droot).filter((e) => e.id === id).at(-1) ?? null;
+}
+
+/** The n most recent archived summaries, oldest first. */
+export function archived(droot, n = 20) {
+  let out = [];
+  for (const f of monthFiles(droot)) {
+    out = [...parseLines(read(path.join(archDir(droot), f))), ...out];
+    if (out.length >= n) break;
+  }
+  if (out.length < n) out = [...legacy(droot), ...out];
+  return out.slice(-n);
+}
+
+/** Bring an archived item back to the desk (a task returns to todo). */
+export function restore(droot, desk, id) {
+  const want = String(id).toUpperCase();
+  if (desk.items.some((i) => i.id === want && !(i.kind === 'task' && TASK_CLOSED.includes(i.status)))) throw new Error(`${want} is on the desk already${want.startsWith('Q-') ? ` (resume ${want})` : ''}`);
+  const e = findArchived(droot, want);
+  if (!e) throw new Error(`${want} is not in the archive`);
+  desk.items = desk.items.filter((i) => i.id !== want);
+  const kind = e.kind ?? 'task';
+  const { status, closed, started, fails, ...rest } = e;
+  const it = clean({ ...rest, kind, ...(kind === 'task' ? { status: 'todo' } : {}), last: today() });
+  if (kind === 'task') log(it, null, `restored from the archive (was ${status})`);
+  desk.items.push(it);
+  return it;
+}
+
+/**
+ * Housekeeping at session start (also `desk compact`): fold the legacy archive.jsonl into monthly files, retire
+ * unpinned memory unused for 30 sessions and one-off lessons unseen for 20 sessions (restore brings them back),
+ * delete sent worker briefs older than 30 days whose task is closed. Returns what it did.
+ */
+export function compact(droot, desk, state) {
+  const moves = [];
+  const p = paths(droot);
+  const old = legacy(droot);
+  if (old.length) {
+    for (const e of old) appendArchive(droot, e);
+    fs.rmSync(p.archive, { force: true });
+    moves.push(`archive.jsonl → monthly files (${old.length})`);
+  }
+  const s = state?.sessions ?? [];
+  const cut = (n) => (s.length > n ? s[s.length - 1 - n] : null);
+  const memCut = cut(30);
+  const lesCut = cut(20);
+  const retire = desk.items.filter((i) => (i.kind === 'memory' && !i.pin && memCut && i.last < memCut) || (i.kind === 'lesson' && (i.seen ?? 1) < 2 && !i.proposal && lesCut && i.last < lesCut));
+  for (const i of retire) appendArchive(droot, summary(i, nowIso()));
+  if (retire.length) {
+    desk.items = desk.items.filter((i) => !retire.includes(i));
+    moves.push(`retired ${retire.map((i) => i.id).join(', ')} (restore ID brings one back)`);
+  }
+  const specs = path.join(droot, DESK, 'plans', 'specs');
+  let gone = 0;
+  try {
+    const open = new Set(tasks(desk, ...TASK_OPEN).map((t) => t.id));
+    for (const f of fs.readdirSync(specs).filter((x) => x.endsWith('.sent.md'))) {
+      const fp = path.join(specs, f);
+      if (!open.has(f.replace(/\.sent\.md$/, '')) && Date.now() - fs.statSync(fp).mtimeMs > 30 * 864e5) fs.rmSync(fp), gone++;
+    }
+  } catch {
+    /* no specs */
+  }
+  if (gone) moves.push(`deleted ${gone} old sent brief(s)`);
+  return moves;
+}
+
+// ---------------------------------------------------------------- metrics (computed here, shown by the dashboard)
+const median = (xs) => {
+  if (!xs.length) return null;
+  const a = [...xs].sort((x, y) => x - y);
+  return a.length % 2 ? a[(a.length - 1) / 2] : (a[a.length / 2 - 1] + a[a.length / 2]) / 2;
+};
+const hours = (a, b) => (Date.parse(b) - Date.parse(a)) / 36e5;
+export const QUIET_MIN = 15;
+
+export function metrics(droot, desk, { now = Date.now(), recent = null } = {}) {
+  const arch = recent ?? archived(droot, 400);
+  const byId = new Map();
+  for (const e of arch) if (e.kind !== 'memory' && e.kind !== 'lesson') byId.set(e.id, e);
+  for (const t of tasks(desk, ...TASK_CLOSED)) byId.set(t.id, summary(t));
+  const closed = [...byId.values()];
+  const week = closed.filter((e) => now - Date.parse(e.closed) < 7 * 864e5);
+  const done7 = week.filter((e) => e.status === 'done');
+  const cycles = done7.filter((e) => e.started).map((e) => hours(e.started, e.closed));
+  const perDay = Array.from({ length: 7 }, (_, i) => {
+    const day = new Date(now - (6 - i) * 864e5).toISOString().slice(0, 10);
+    return { day, done: done7.filter((e) => String(e.closed).slice(0, 10) === day).length };
+  });
+  const lastAt = (t) => t.history?.at(-1)?.at;
+  const running = tasks(desk, 'doing').filter((t) => !isLead(t));
+  const quiet = running.filter((t) => lastAt(t) && now - Date.parse(lastAt(t)) > QUIET_MIN * 6e4).map((t) => ({ id: t.id, minutes: Math.round((now - Date.parse(lastAt(t))) / 6e4) }));
+  const asks = tasks(desk, ...TASK_OPEN).filter((t) => t.question);
+  const failed = tasks(desk, 'failed');
+  const reasons = { red: [], yellow: [] };
+  if (failed.length) reasons.red.push(`${failed.length} failed task(s)`);
+  for (const q of quiet) (q.minutes > 2 * QUIET_MIN ? reasons.red : reasons.yellow).push(`${q.id} quiet ${q.minutes} min`);
+  for (const t of asks) (t.question.at && now - Date.parse(t.question.at) > 30 * 6e4 ? reasons.red : reasons.yellow).push(`${t.id} asks a question`);
+  const rv = tasks(desk, 'review');
+  if (rv.length) reasons.yellow.push(`${rv.length} report(s) to verify`);
+  const inbox = tasks(desk, 'inbox');
+  if (inbox.length) reasons.yellow.push(`${inbox.length} unsorted in the inbox`);
+  const pend = listReview(droot).filter((r) => !r.archived && r.status === 'pending');
+  if (pend.length) reasons.yellow.push(`${pend.length} proposal(s) waiting for you`);
+  const level = reasons.red.length ? 'red' : reasons.yellow.length ? 'yellow' : 'green';
+  const models = {};
+  for (const e of [...closed, ...tasks(desk, 'doing', 'review').map((t) => summary(t))].filter((e) => e.executor === 'orca' || e.agent)) {
+    const k = `${e.agent ?? '?'}${e.model ? ':' + e.model : ''}`;
+    const m = (models[k] ??= { model: k, dispatched: 0, running: 0, done: 0, failed: 0, escalated: 0, cycles: [] });
+    m.dispatched++;
+    if (['doing', 'review'].includes(e.status)) m.running++;
+    if (e.status === 'done') m.done++;
+    if (e.status === 'failed' || e.fails) m.failed++;
+    if (/@/.test(e.route ?? '') && e.fails >= 2) m.escalated++;
+    if (e.status === 'done' && e.started) m.cycles.push(hours(e.started, e.closed));
+  }
+  return {
+    health: { level, reasons: [...reasons.red, ...reasons.yellow] },
+    done7: done7.length,
+    closed7: week.length,
+    cycleHours: median(cycles),
+    rework: done7.length ? done7.filter((e) => e.fails).length / done7.length : 0,
+    perDay,
+    quiet,
+    models: Object.values(models).map(({ cycles: c, ...m }) => ({ ...m, cycleHours: median(c) })),
+  };
 }
 
 // ---------------------------------------------------------------- views
@@ -622,11 +775,36 @@ export function renderMd(droot, desk) {
   return L.join('\n').replace(/\n{3,}/g, '\n\n');
 }
 
+const onPath = (cmd) => (path.isAbsolute(cmd) ? fs.existsSync(cmd) : (process.env.PATH ?? '').split(path.delimiter).some((d) => d && ['', '.exe', '.cmd'].some((x) => fs.existsSync(path.join(d, cmd + x)))));
+/** Plan branches and their worktrees, straight from git (cheap; no Orca call). */
+function planGit(droot) {
+  const out = {};
+  const root = mainRoot(droot);
+  let cur = null;
+  for (const l of (git(root, ['worktree', 'list', '--porcelain']) ?? '').split('\n')) {
+    if (l.startsWith('worktree ')) cur = l.slice(9);
+    else if (l.startsWith('branch refs/heads/plan/')) out[l.slice(23)] = { worktree: cur };
+  }
+  for (const b of (git(root, ['for-each-ref', '--format=%(refname:short)', 'refs/heads/plan/']) ?? '').split('\n').filter(Boolean)) out[b.slice(5)] ??= { worktree: null };
+  return out;
+}
+
 export function renderHtml(droot, desk) {
   const tpl = read(path.join(HERE, 'dashboard.html'));
   if (!tpl || !tpl.includes('/*DESK*/')) return;
   const m = findManifest(droot)?.data;
-  const payload = JSON.stringify({ ...desk, title: m?.profession?.title ?? 'Work', review: listReview(droot).filter((r) => !r.archived).map(({ id, title, status }) => ({ id, title, status })) }).replace(/</g, '\\u003c');
+  const team = readJson(path.join(droot, DESK, 'team.json'), {}) ?? {};
+  const recent = archived(droot, 400);
+  const payload = JSON.stringify({
+    ...desk,
+    title: m?.profession?.title ?? 'Work',
+    generated: nowIso(),
+    review: listReview(droot).filter((r) => !r.archived).map(({ id, title, status }) => ({ id, title, status })),
+    team: { maxWorkers: team.maxWorkers ?? 3, maxPlanWorktrees: team.maxPlanWorktrees ?? 3, roles: Object.keys(team.routing?.roles ?? {}), exclusive: team.test?.exclusive || null, orca: onPath(process.env.AGENTKIT_ORCA || 'orca') },
+    plans: planGit(droot),
+    recent: recent.slice(-120),
+    metrics: metrics(droot, desk, { recent }),
+  }).replace(/</g, '\\u003c');
   const start = tpl.indexOf('/*DESK*/');
   const end = tpl.indexOf('/*END*/') + '/*END*/'.length;
   writeAtomic(paths(droot).html, tpl.slice(0, start) + payload + tpl.slice(end));

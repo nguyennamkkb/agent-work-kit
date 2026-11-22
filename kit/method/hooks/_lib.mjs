@@ -159,9 +159,16 @@ export function bumpSession(droot) {
   return s;
 }
 
+export const JOURNAL_MAX = 256 * 1024;
+/** Append to the journal; past JOURNAL_MAX bytes keep the newest half (it is a working log, not an archive). */
 export function journal(droot, entry) {
+  const f = path.join(droot, DESK, '.journal.jsonl');
   try {
-    fs.appendFileSync(path.join(droot, DESK, '.journal.jsonl'), JSON.stringify({ t: nowIso(), ...entry }) + '\n');
+    fs.appendFileSync(f, JSON.stringify({ t: nowIso(), ...entry }) + '\n');
+    if (fs.statSync(f).size > JOURNAL_MAX) {
+      const lines = (read(f) ?? '').split('\n').filter(Boolean);
+      writeAtomic(f, lines.slice(Math.floor(lines.length / 2)).join('\n') + '\n');
+    }
   } catch {
     /* no desk */
   }

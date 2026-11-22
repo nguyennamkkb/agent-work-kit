@@ -64,8 +64,8 @@ Kit tự nhận ra harness bạn đang dùng (Claude Code, Codex, OpenCode, Pi, 
 | "chia việc cho đội làm song song" | agent hỏi bạn đúng một câu, rồi mới mở worker |
 
 **4. Xem bàn bất cứ lúc nào:**
-- `.desk/DESK.md`: đọc nhanh, có trong git;
-- `.desk/desk.html`: dashboard, mở bằng trình duyệt, tự làm mới mỗi 10 giây;
+- `.desk/desk.html`: **dashboard điều hành**, mở bằng trình duyệt, tự làm mới mỗi 10 giây (xem mục [Dashboard](#dashboard));
+- `.desk/DESK.md`: bản đọc nhanh, có trong git;
 - `npx github:nguyennamkkb/agent-work-kit desk`: xem ngay trong terminal.
 
 **5. Yên tâm.** Không có gì mất hẳn: xoá được hoàn tác, việc huỷ vẫn nằm trong archive. Push, merge, xoá worktree, mở worker đều phải hỏi bạn trước. Kit chỉ ghi vào thư mục dự án. Chi tiết ở mục [An toàn](#an-toàn).
@@ -117,6 +117,27 @@ Bàn là một file dữ liệu, `.desk/desk.json`. Agent chỉ thay đổi nó 
 | P1 | đẩy mục tiêu tiến lên; điều bạn yêu cầu trong phiên này |
 | P2 | hữu ích nhưng đợi được; "để sau", ý tưởng của agent |
 | P3 | có thì tốt |
+
+---
+
+## Dashboard
+
+`.desk/desk.html` là một file duy nhất: không cần server hay mạng, mở thẳng trong trình duyệt. Sáng/tối theo hệ thống, dùng được trên điện thoại. File tự làm mới mỗi 10 giây mà vẫn giữ bộ lọc, tab và vị trí đang xem. Mở ra là trả lời ngay ba câu hỏi:
+
+| Phần | Cho bạn biết |
+|---|---|
+| **Đèn sức khoẻ** | xanh / vàng / đỏ, kèm lý do (việc thất bại, worker im lặng, câu hỏi chờ quá 30 phút…) |
+| **Chỉ số** | đang làm · hàng chờ · đang chờ · chờ kiểm · xong trong 7 ngày (kèm biểu đồ) · cycle time trung vị · tỉ lệ làm lại |
+| **Cần bạn** | câu hỏi của worker, báo cáo chờ kiểm, đề xuất chờ duyệt, việc thất bại, việc chờ bạn, hộp vào. Mỗi mục kèm lệnh, bấm một cái là chép |
+| **Đội** | mỗi worker một thẻ: vai trò, agent·model, việc, plan, worktree, chạy bao lâu, ghi chú gần nhất, file, lease, sha; cảnh báo **im lặng > 15 phút**, đang hỏi; vai trò nào rảnh |
+| **Dòng thời gian** | mỗi vai trò một làn, xem 24 giờ hoặc 7 ngày: ai làm gì, lúc nào, có chạy song song thật không |
+| **Plan** | tiến độ theo màu (xong · chờ kiểm · đang làm · đang chờ), trạng thái worktree |
+| **Hiệu quả model** | số lần chạy, đang chạy, xong, thất bại, tỉ lệ thành công, cycle time theo từng model, để chỉnh routing |
+| **Board** | kanban lọc theo plan, vai trò, agent, có ô tìm kiếm, giới hạn số việc đang làm |
+| **Hoạt động** | 60 sự kiện gần nhất: giao việc, hỏi, trả lời, báo xong, lease… |
+| **Kiến thức** | bộ nhớ, bài học, đề xuất, lease |
+
+Bấm vào bất kỳ việc nào để xem chi tiết: lịch sử đầy đủ, route, brief, bằng chứng, sha, phụ thuộc, việc con. Các chỉ số được tính sẵn trong kit (có test); trang chỉ hiển thị.
 
 ---
 
@@ -180,6 +201,7 @@ Hướng dẫn đầy đủ cho agent: [`kit/method/docs/team.md`](kit/method/do
 | Tốn tiền vì worker chạy vô tội vạ | tối đa 3 worker; sau 2 lần thất bại thì dừng giao; chặn model khớp mẫu `deny` (mặc định `*free*`) |
 | Kit làm hỏng dự án | kit chỉ ghi trong vùng `agentkit:start/end`, merge JSON chứ không ghi đè; `remove` trả mọi file về đúng từng byte |
 | Kit ghi lung tung trên máy | **chỉ ghi vào thư mục dự án**, và tự dọn cache của `npx` sau mỗi lần chạy |
+| Dùng lâu thì file phình to | không đổi gì thì không ghi gì; việc hook chỉ đếm số lần nhắc tới thì chỉ ghi `desk.json`; journal tối đa 256 KB; archive chia theo tháng, chỉ lưu bản tóm tắt; đầu phiên tự dọn memory và bài học cũ (lấy lại bằng `restore`) và brief cũ của worker |
 | Plugin lỗi làm treo harness | mọi plugin và hook đều "fail open": có lỗi thì harness vẫn chạy bình thường |
 
 ---
@@ -198,6 +220,11 @@ Hướng dẫn đầy đủ cho agent: [`kit/method/docs/team.md`](kit/method/do
 | Hướng dẫn đội | – | ~2.000, **chỉ đọc khi dùng worker** |
 
 Phần cố định được harness cache lại nên rẻ hơn nhiều sau lần đầu. Phần lớn chi phí trước đây nằm ở các lần cập nhật bàn, và phần đó đã giảm khoảng 95%.
+
+**Đọc ghi file khi dùng lâu dài:**
+- Một câu gõ bình thường chỉ ghi tối đa một dòng journal nhỏ, cộng `desk.json` nếu câu đó nhắc tới một mục; mỗi mục chỉ được đếm một lần mỗi ngày.
+- Dashboard và `DESK.md` chỉ được vẽ lại khi bàn thật sự thay đổi.
+- Sau một năm, `.desk/` vào khoảng 1–2 MB, thay vì hàng chục MB nếu cứ ghi thêm mãi.
 
 ---
 
@@ -267,9 +294,9 @@ Thứ tự ưu tiên: luật dự án > luật nghề > phương pháp bàn.
 
 | Nhóm | Lệnh |
 |---|---|
-| Xem | `status` · `list [--all]` · `show Q-7` · `log` |
+| Xem | `status` · `list [--all]` · `show Q-7` · `log` · `compact` |
 | Việc | `add [P0-3] "…" [--done "kiểm chứng"] [--now] [--files a,b] [--deps Q-1] [--plan slug] [--role r]` · `edit Q-7 --prio/--text/--done/--files …` · `start Q-7` · `next "bước kế"` |
-| | `wait Q-7 --on user\|Q-3\|"ai" [--until YYYY-MM-DD]` · `resume Q-7` · `done [Q-7] --proof "…"` · `drop Q-7 --why "…"` · `split Q-7 "a" "b"` · `undo` |
+| | `wait Q-7 --on user\|Q-3\|"ai" [--until YYYY-MM-DD]` · `resume Q-7` · `done [Q-7] --proof "…"` · `drop Q-7 --why "…"` · `split Q-7 "a" "b"` · `undo` · `restore Q-7` (lấy lại từ archive) |
 | Nhớ, học | `remember "…" [--pin]` · `forget M-2 --why` · `lesson "…"` · `propose "…" --change … --why …` · `approve P-001 --quote "…"` |
 | Hướng | `goal "đích" "cách biết đã tới"` · `inbox "…"` · `file Q-9 task\|memory\|lesson` |
 | Đội | `team [check\|allow\|set]` · `plan slug` · `route vai-trò` · `dispatch Q-9` · `mail` · `reply Q-9 "…"` · `send Q-9 --subject PAUSE` · `sync --apply` · `fleet` · `lease` · `wt status\|open\|park\|close\|drop\|tidy` · `gate slug` |
@@ -295,7 +322,7 @@ CLAUDE.md                         @AGENTS.md (nếu dùng Claude Code)
   desk.json      dữ liệu bàn (commit)          DESK.md       bản để đọc (commit)
   team.json      hồ sơ đội: build, test, routing (commit)
   plans/         plan và brief cho worker       review/       đề xuất P-*, ghi chú cập nhật U-*
-  archive/       việc đã đóng theo tháng        rules.local.md  luật dự án
+  archive/       YYYY-MM.md (để đọc) + YYYY-MM.jsonl (bản tóm tắt)   rules.local.md  luật dự án
   desk.html · .state.json · .journal.jsonl · .undo/   (không commit, đã có trong .desk/.gitignore)
 ```
 
@@ -333,7 +360,7 @@ Xong là cờ `--backend` tự có. Mỗi lần sửa luật, tăng `version` đ
 ## Phát triển
 
 ```bash
-npm test                       # 48 test: engine, bàn, hook, đội (với Orca giả), từng harness, CLI
+npm test                       # 55 test: engine, bàn, hook, đội (với Orca giả), từng harness, CLI
 UPDATE_SNAPSHOTS=1 npm test    # khi cố ý đổi output của adapter
 node bin/cli.js init --ios -y --dir /tmp/demo
 ```
@@ -345,7 +372,7 @@ src/lib/              engine (ghi file, manifest, so luật theo ID, chuyển b�
 src/adapters/         một adapter cho mỗi harness
 kit/method/           SKILL.md, docs/team.md, desk.mjs, hooks/ (_lib, store, team, cli, 5 hook, dashboard), bridge/, desk/ (mẫu)
 kit/profession/       gói nghề: ios, designer, universal
-test/                 kit, desk, team, harness; fixtures/fake-orca.mjs
+test/                 kit, desk, storage, team, harness; fixtures/fake-orca.mjs
 ```
 
 ## Giới hạn hiện tại
@@ -367,4 +394,4 @@ test/                 kit, desk, team, harness; fixtures/fake-orca.mjs
 
 **Gỡ thế nào?** `npx github:nguyennamkkb/agent-work-kit remove`. File của bạn trở về đúng như trước khi cài. Thêm `--purge-desk` nếu muốn xoá cả bàn.
 
-Đặc tả kỹ thuật: [DESK-SPEC.md](DESK-SPEC.md) · Kế hoạch v2: [PLAN-v2.md](PLAN-v2.md).
+Đặc tả kỹ thuật: [DESK-SPEC.md](DESK-SPEC.md) · Kế hoạch: [PLAN-v2.md](PLAN-v2.md), [PLAN-v2.1.md](PLAN-v2.1.md).

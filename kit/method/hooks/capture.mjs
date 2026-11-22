@@ -44,9 +44,11 @@ mutate(droot, 'capture', (d) => {
   if (signals.includes('wait')) hints.push(`If a task now waits on someone or something: \`${C} wait ID --on user|Q-3|"who" [--until date]\`.`);
   if (signals.includes('drop')) hints.push(`If the user drops a task: \`${C} drop ID --why "<their words>"\` (undo-able).`);
   if (!hit.length && !hints.length) return { noop: true };
+  if (!hints.length) return { bookkeeping: true }; // only counters moved
 });
 
-journal(droot, { s: state.session, signals, bumped: hit.map((i) => i.id), text: prompt.slice(0, 1000) });
+// The words are kept only when they carry a signal; otherwise when and what was touched is enough.
+journal(droot, { s: state.session, signals: signals.length ? signals : undefined, bumped: hit.length ? hit.map((i) => i.id) : undefined, text: signals.length ? prompt.slice(0, 500) : undefined });
 const pending = listReview(droot).filter((r) => !r.archived && r.kind === 'P' && r.status === 'pending');
 if (signals.includes('approve') && pending.length) hints.push(`If this approves ${pending.map((p) => p.id).join(' / ')}: \`${C} approve P-… --quote "<their words>"\`, then apply it.`);
 if (signals.includes('team') && orcaAvailable() && !state.teamAllowed) hints.push(`Team mode is available (Orca). Before the first worker, ask the user once; after their yes: \`${C} team allow --quote "…"\`. Guide: .agentkit/docs/team.md.`);

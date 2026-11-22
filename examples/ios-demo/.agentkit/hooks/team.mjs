@@ -118,7 +118,7 @@ export function parseCandidate(c) {
 }
 
 /** Default roles: the agents installed on this machine, with their own default models. */
-export function defaultRoles(available = ['claude', 'codex', 'omp', 'pi', 'opencode'].filter(which)) {
+export function defaultRoles(available = ['claude', 'omp', 'pi', 'opencode', 'codex'].filter(which)) {
   if (!available.length) return {};
   const [a, b = a] = available;
   const r = (use, fallback = [b]) => ({ use, fallback });

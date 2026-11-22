@@ -6,12 +6,12 @@ import * as S from './store.mjs';
 import * as T from './team.mjs';
 
 export const HELP = `desk — the project's work board (.desk/desk.json). Every change goes through this command.
-View    status · list [--all|--status s] · show ID · log [n]
+View    status · list [--all|--status s] · show ID · log [n] · compact (tidy the desk files; runs at session start)
 Tasks   add [P0-3] "text" [--done "check"] [--now] [--files a,b] [--deps Q-1] [--parent Q-2] [--ref path] [--plan slug] [--role r]
         edit ID [--text|--prio|--done|--next|--files|--deps|--ref|--plan|--role "…"] · prio ID P0
         start ID [--next "where I stopped on the current one"] · next "step"
         wait ID --on user|Q-3|"who" [--until YYYY-MM-DD] · resume ID
-        done [ID] --proof "check that passed" · drop ID --why "…" · split ID "part a" "part b" · undo
+        done [ID] --proof "check that passed" · drop ID --why "…" · split ID "part a" "part b" · undo · restore ID (from the archive)
 Memory  remember "fact/decision" [--pin] · forget ID --why "…" · touch ID
 Learn   lesson "…" · propose "title" --change "…" --why "…" [--from L-1] · approve P-1 --quote "…" · reject P-1
 Goal    goal "line" ["line"…] · inbox "…" · file ID task|memory|lesson [P0-3]
@@ -74,7 +74,19 @@ export function run(argv, { cwd = process.cwd(), out = (s) => process.stdout.wri
       return print([JSON.stringify(rest), ...(history ?? []).slice(-8).map((h) => `  ${h.at} ${h.status}${h.note ? ' — ' + h.note : ''}`)]);
     }
     case 'log':
-      return print(S.archived(droot, Number(pos[0] ?? 15)).map((e) => `${e.at.slice(0, 10)} ${S.ICON[e.status] ?? ''} ${e.id} ${e.item?.text ?? ''}${e.item?.proof ? ' — ' + e.item.proof : ''}${e.item?.why ? ' — ' + e.item.why : ''}`));
+      return print(S.archived(droot, Number(pos[0] ?? 15)).map((e) => `${String(e.closed).slice(0, 10)} ${S.ICON[e.status] ?? '🗄'} ${e.id} ${e.text ?? ''}${e.proof ? ' — ' + e.proof : ''}${e.why ? ' — ' + e.why : ''}`));
+    case 'restore': {
+      const it = m('restore', (d) => S.restore(droot, d, pos[0]));
+      return print(ok(`${it.id} restored as ${it.kind}${it.status ? ` (${it.status})` : ''}`));
+    }
+    case 'compact': {
+      let moves = [];
+      m('compact', (d) => {
+        moves = S.compact(droot, d, readState(droot));
+        return moves.length ? moves : { noop: true };
+      });
+      return print(moves.length ? moves.map((x) => ok(x)) : 'compact: nothing to do');
+    }
 
     case 'add': {
       const prio = isPrio(pos[0]) ? pos.shift() : o.prio;

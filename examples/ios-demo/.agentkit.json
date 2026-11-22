@@ -1,10 +1,10 @@
 {
   "kit": "agent-work-kit",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "profession": {
     "name": "ios",
     "title": "iOS",
-    "version": "1.1.0",
+    "version": "1.1.1",
     "rules": {
       "IOS-001": {
         "hash": "74071d1aeda52632",
@@ -12,9 +12,9 @@
         "body": "Before reporting done, run the project's build + test command and show the summary (failing tests with file:line, warning count).\n- Why: \"done\" without a green build is the most common false report.\n- Check: test output appears in the session before \"done\"."
       },
       "IOS-002": {
-        "hash": "fb36073f74e32191",
+        "hash": "c554138c1b9dfec5",
         "kind": "P1",
-        "body": "Find the scheme and simulator once (`xcodebuild -list`, `xcrun simctl list devices available`) and store them as a memory item; reuse it after that.\n- Why: rediscovering build settings wastes the start of every session.\n- Check: memory.md has the build command above the line."
+        "body": "Find the scheme and simulator once (`xcodebuild -list`, `xcrun simctl list devices available`) and store them as a memory item; reuse it after that.\n- Why: rediscovering build settings wastes the start of every session.\n- Check: a pinned memory holds the build command (`desk remember \"…\" --pin`)."
       },
       "IOS-003": {
         "hash": "cb818b293e4d6162",
@@ -47,7 +47,7 @@
     "opencode"
   ],
   "installedAt": "2026-11-22T04:38:04.665Z",
-  "updatedAt": "2026-11-22T05:31:31.386Z",
+  "updatedAt": "2026-11-22T06:26:00.461Z",
   "files": {
     "AGENTS.md": {
       "kind": "block",
@@ -55,19 +55,19 @@
     },
     ".agentkit/hooks/_lib.mjs": {
       "kind": "file",
-      "hash": "8a6c72a983cd1a9c"
+      "hash": "ebe7e33457ad418c"
     },
     ".agentkit/hooks/capture.mjs": {
       "kind": "file",
-      "hash": "9e620859a5bf877d"
+      "hash": "d52809dc15e5f5f6"
     },
     ".agentkit/hooks/cli.mjs": {
       "kind": "file",
-      "hash": "4ebeb490c6591d08"
+      "hash": "1e4d23e3011d8de4"
     },
     ".agentkit/hooks/dashboard.html": {
       "kind": "file",
-      "hash": "8b5636b0ccf4a242"
+      "hash": "1c6dca71e861e9b3"
     },
     ".agentkit/hooks/desk-check.mjs": {
       "kind": "file",
@@ -75,11 +75,11 @@
     },
     ".agentkit/hooks/guard.mjs": {
       "kind": "file",
-      "hash": "ecf161d3c1068e8c"
+      "hash": "e9a4931ed819c60e"
     },
     ".agentkit/hooks/session-start.mjs": {
       "kind": "file",
-      "hash": "5a3a4fe13d3274b4"
+      "hash": "4205ea4f2048db62"
     },
     ".agentkit/hooks/stop-check.mjs": {
       "kind": "file",
@@ -87,11 +87,11 @@
     },
     ".agentkit/hooks/store.mjs": {
       "kind": "file",
-      "hash": "6fc3fba7d039f3bf"
+      "hash": "5b9571d6dc6835c2"
     },
     ".agentkit/hooks/team.mjs": {
       "kind": "file",
-      "hash": "8ace31922bfe1c0d"
+      "hash": "984cf57f7d210c85"
     },
     ".agentkit/desk.mjs": {
       "kind": "file",
@@ -103,7 +103,7 @@
     },
     ".agents/skills/desk/SKILL.md": {
       "kind": "file",
-      "hash": "db5d4f12c5a0f59c"
+      "hash": "23043115a3cec99a"
     },
     ".opencode/plugins/agentkit-desk/index.js": {
       "kind": "file",

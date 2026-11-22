@@ -2,7 +2,7 @@
 // SessionStart: count the session, sort the desk mechanically, show the surface (or a worker's own task).
 // Kit-managed: do not edit.
 import { readStdinJson, projectDir, deskRoot, bumpSession, readState, git } from './_lib.mjs';
-import { hasDesk, load, mutate, autoSort, surface } from './store.mjs';
+import { hasDesk, load, mutate, autoSort, compact, surface } from './store.mjs';
 import { workerContext } from './team.mjs';
 
 const input = await readStdinJson();
@@ -19,7 +19,7 @@ const state = startup ? bumpSession(droot) : readState(droot);
 let moves = [];
 if (startup)
   mutate(droot, 'auto-sort', (d) => {
-    moves = autoSort(droot, d, state);
+    moves = [...autoSort(droot, d, state), ...compact(droot, d, state)];
     return moves.length ? moves : { noop: true };
   });
 let out = surface(droot, load(droot), { state, moves });

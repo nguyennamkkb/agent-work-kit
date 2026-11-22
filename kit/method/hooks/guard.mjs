@@ -74,11 +74,16 @@ if (touchedFiles.length && hasDesk(droot)) {
   try {
     const probe = load(droot);
     if (touchedFiles.some((f) => bumpMatches(JSON.parse(JSON.stringify(probe)), { file: f }).length))
-      mutate(droot, 'touch-file', (d) => {
-        let n = 0;
-        for (const f of touchedFiles) n += bumpMatches(d, { file: f }).length;
-        return n ? n : { noop: true };
-      });
+      mutate(
+        droot,
+        'touch-file',
+        (d) => {
+          let n = 0;
+          for (const f of touchedFiles) n += bumpMatches(d, { file: f }).length;
+          return n ? n : { noop: true };
+        },
+        { bookkeeping: true },
+      );
   } catch {
     /* never block a write over bookkeeping */
   }

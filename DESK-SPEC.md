@@ -28,10 +28,20 @@
 3. `drop` và `fail` bắt buộc có lý do.
 4. Việc `waiting` tự quay lại `todo` khi việc nó chờ (`on: Q-n`) xong, hoặc khi tới ngày `until`.
 5. Hai việc đang mở không được sở hữu chung một file, trừ khi việc này phụ thuộc việc kia. File của lead (`team.json` → `leadFiles`) chỉ việc có vai trò `lead` được nhận.
-6. Việc đã đóng được ghi vào `archive/YYYY-MM.md` và `archive.jsonl`. Bàn chỉ giữ 12 việc đóng gần nhất.
+6. Việc đã đóng được ghi vào `archive/YYYY-MM.md` (một dòng để đọc) và `archive/YYYY-MM.jsonl` (bản tóm tắt: id, kind, trạng thái, prio, nội dung, bằng chứng/lý do, sha, plan, role, agent, model, thời điểm bắt đầu/đóng, số lần thất bại; không có lịch sử). Bàn chỉ giữ 12 việc đóng gần nhất. Khi tìm, kit đọc từ tháng mới nhất trở về trước và dừng ngay khi thấy. `restore ID` đưa một việc, memory hay lesson trở lại bàn.
 7. Mỗi lần thay đổi đều lưu một ảnh chụp vào `.undo/` (giữ 30 bản); `undo` khôi phục bản trước đó.
 
-**File sinh ra từ dữ liệu:** `DESK.md` (để đọc, có commit) và `desk.html` (dashboard, không commit). Cả hai được sinh lại sau mỗi lần ghi.
+**Ghi file tiết kiệm:**
+- `mutate` so dữ liệu trước và sau; không đổi thì không ghi gì.
+- Thao tác ghi chép (`bookkeeping`: hook tăng `uses`/`last`, ghi nhận file được sửa) chỉ ghi `desk.json`: không tạo undo, không vẽ lại view.
+- Mỗi mục chỉ được đếm "được nhắc tới" một lần mỗi ngày.
+- Journal chỉ lưu nguyên văn câu có tín hiệu; quá 256 KB thì giữ nửa mới nhất.
+
+**File sinh ra từ dữ liệu:**
+- `DESK.md`: để đọc, có commit.
+- `desk.html`: dashboard, không commit. Dữ liệu nhúng trong trang gồm `team` (giới hạn, vai trò, tài nguyên độc quyền, Orca), `plans` (nhánh `plan/*` và worktree, lấy từ git), `recent` (120 bản tóm tắt archive gần nhất) và `metrics`.
+
+Cả hai được sinh lại sau mỗi thay đổi thật.
 
 **File agent được ghi trực tiếp:** `plans/**/*.md`, `review/[PU]-*.md`, `team.json` (phải là JSON hợp lệ, routing hợp lệ) và `rules.local.md` (lint; luật mới hoặc luật bị sửa phải dẫn một đề xuất đã duyệt). Mọi file khác trong `.desk/` đều bị hook chặn.
 
@@ -42,6 +52,18 @@
 - Đánh thức các việc đang chờ đã đủ điều kiện.
 - Mức độ quan trọng (`uses`, `last`) tăng khi người dùng nhắc tới một mục (bằng id, hoặc ≥ 2 từ trùng nhau) và khi agent sửa một file nằm trong `refs` hoặc `files` của mục đó (mỗi mục một lần mỗi ngày).
 - Bài học trùng nội dung thì tăng `seen`. Từ `seen ≥ 2` trở lên, agent đề xuất cách sửa tận gốc.
+- **`compact`** (cũng chạy tay được):
+  - chuyển `archive.jsonl` cũ sang các file theo tháng;
+  - memory không ghim mà 30 phiên không dùng → archive;
+  - lesson ×1 không có đề xuất mà 20 phiên không gặp lại → archive;
+  - xoá `*.sent.md` của việc đã đóng quá 30 ngày.
+
+## 3b. Chỉ số (`store.metrics`)
+- `done7`, `perDay` (7 ngày), `cycleHours`: trung vị thời gian từ lúc bắt đầu tới lúc đóng của các việc xong trong 7 ngày.
+- `rework`: tỉ lệ việc xong có ít nhất một lần thất bại.
+- `quiet`: worker đang chạy mà quá 15 phút không có sự kiện.
+- `health`: đỏ khi có việc thất bại, worker im lặng quá 30 phút, hoặc câu hỏi chờ quá 30 phút; vàng khi có báo cáo chờ kiểm, hộp vào còn việc, đề xuất chờ duyệt, câu hỏi mới, hoặc worker im lặng quá 15 phút; xanh trong các trường hợp còn lại.
+- `models`: số lần chạy, đang chạy, xong, thất bại, leo thang và cycle time theo từng `agent:model`.
 
 ## 4. Hook
 
