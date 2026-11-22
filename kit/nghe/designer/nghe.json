@@ -1,0 +1,8 @@
+{
+  "name": "designer",
+  "title": "Designer",
+  "version": "1.0.0",
+  "description": "Product / UI design in Figma with a design system",
+  "mcp": { "figma": { "type": "http", "url": "https://mcp.figma.com/mcp" } },
+  "checks": []
+}

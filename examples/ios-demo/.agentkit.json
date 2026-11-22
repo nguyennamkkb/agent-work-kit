@@ -1,0 +1,251 @@
+{
+  "kit": "agent-work-kit",
+  "version": "0.1.0",
+  "nghe": {
+    "name": "ios",
+    "title": "iOS",
+    "version": "1.0.0",
+    "rules": {
+      "IOS-001": {
+        "hash": "74071d1aeda52632",
+        "kind": "P0",
+        "body": "Before reporting done, run the project's build + test command and show the summary (failing tests with file:line, warning count).\n- Why: \"done\" without a green build is the most common false report.\n- Check: test output appears in the session before \"done\"."
+      },
+      "IOS-002": {
+        "hash": "fb36073f74e32191",
+        "kind": "P1",
+        "body": "Find the scheme and simulator once (`xcodebuild -list`, `xcrun simctl list devices available`) and store them as a memory item; reuse it after that.\n- Why: rediscovering build settings wastes the start of every session.\n- Check: memory.md has the build command above the line."
+      },
+      "IOS-003": {
+        "hash": "cb818b293e4d6162",
+        "kind": "P1",
+        "body": "Never weaken a check to get green: no disabling tests, `// swiftlint:disable`, or lowering warning levels without an approved proposal.\n- Why: hidden failures come back later and cost more.\n- Check: the diff adds no disable comments or skipped tests."
+      },
+      "IOS-004": {
+        "hash": "38b81e2a8d9e2e46",
+        "kind": "P1",
+        "body": "SwiftUI: views only lay out; state and logic live in an `@MainActor` `@Observable` model (or the project's existing pattern in memory). Inject services through protocols.\n- Why: logic in views is untestable and re-renders unpredictably.\n- Check: new logic has a unit test against the model, not the view."
+      },
+      "IOS-005": {
+        "hash": "821b48aa6451fead",
+        "kind": "P1",
+        "body": "Concurrency: UI on `@MainActor`, shared mutable state in an `actor`, prefer `async let`/task groups over bare `Task {}`, store and cancel any `Task` you create. Fix the type instead of `@unchecked Sendable` or `nonisolated(unsafe)`.\n- Why: silenced concurrency warnings are real data races.\n- Check: no new concurrency warnings; no new unsafe annotations."
+      },
+      "IOS-006": {
+        "hash": "b35d76ccbba83ed7",
+        "kind": "P2",
+        "body": "Every new screen has a `#Preview` covering loading, empty, error and content states with a fake service.\n- Why: previews catch layout and state bugs before running the app.\n- Check: the new view file contains `#Preview`."
+      },
+      "IOS-007": {
+        "hash": "159dc8b741bd7dcf",
+        "kind": "P1",
+        "body": "Ask before touching signing, bundle ids, entitlements, `Info.plist` capabilities, or hand-editing `*.pbxproj`.\n- Why: these break builds for the whole team and are hard to review.\n- Check: none of these files change without a user confirmation in the session."
+      }
+    }
+  },
+  "harnesses": [
+    "claude",
+    "codex",
+    "opencode",
+    "pi",
+    "omp",
+    "cursor"
+  ],
+  "installedAt": "2026-11-22T03:09:18.079Z",
+  "updatedAt": "2026-11-22T03:09:18.079Z",
+  "files": {
+    "AGENTS.md": {
+      "kind": "block",
+      "hash": "a23936fb6a2bb06b"
+    },
+    ".agentkit/hooks/_lib.mjs": {
+      "kind": "file",
+      "hash": "390171dde94c5ea6"
+    },
+    ".agentkit/hooks/capture.mjs": {
+      "kind": "file",
+      "hash": "925b6bc1339a5f89"
+    },
+    ".agentkit/hooks/desk-check.mjs": {
+      "kind": "file",
+      "hash": "71ebbf130eb6f728"
+    },
+    ".agentkit/hooks/guard.mjs": {
+      "kind": "file",
+      "hash": "8aa4f061fffab2c0"
+    },
+    ".agentkit/hooks/session-start.mjs": {
+      "kind": "file",
+      "hash": "8fd97bd9cc9e5ef4"
+    },
+    ".agentkit/hooks/stop-check.mjs": {
+      "kind": "file",
+      "hash": "9b848eff23c4723b"
+    },
+    "CLAUDE.md": {
+      "kind": "block",
+      "hash": "c5adcca117414c17"
+    },
+    ".claude/skills/desk/SKILL.md": {
+      "kind": "file",
+      "hash": "589ed15cdd3836e2"
+    },
+    ".claude/settings.json": {
+      "kind": "json",
+      "patch": {
+        "hooks": {
+          "SessionStart": [
+            {
+              "hooks": [
+                {
+                  "type": "command",
+                  "command": "node \"$CLAUDE_PROJECT_DIR/.agentkit/hooks/session-start.mjs\"",
+                  "timeout": 10
+                }
+              ]
+            }
+          ],
+          "UserPromptSubmit": [
+            {
+              "hooks": [
+                {
+                  "type": "command",
+                  "command": "node \"$CLAUDE_PROJECT_DIR/.agentkit/hooks/capture.mjs\"",
+                  "timeout": 10
+                }
+              ]
+            }
+          ],
+          "PreToolUse": [
+            {
+              "matcher": "Edit|Write|MultiEdit|NotebookEdit",
+              "hooks": [
+                {
+                  "type": "command",
+                  "command": "node \"$CLAUDE_PROJECT_DIR/.agentkit/hooks/guard.mjs\"",
+                  "timeout": 10
+                }
+              ]
+            }
+          ],
+          "PostToolUse": [
+            {
+              "matcher": "Edit|Write|MultiEdit|NotebookEdit",
+              "hooks": [
+                {
+                  "type": "command",
+                  "command": "node \"$CLAUDE_PROJECT_DIR/.agentkit/hooks/desk-check.mjs\"",
+                  "timeout": 10
+                }
+              ]
+            }
+          ],
+          "Stop": [
+            {
+              "hooks": [
+                {
+                  "type": "command",
+                  "command": "node \"$CLAUDE_PROJECT_DIR/.agentkit/hooks/stop-check.mjs\"",
+                  "timeout": 10
+                }
+              ]
+            }
+          ]
+        },
+        "permissions": {
+          "ask": [
+            "Bash(git push:*)",
+            "Bash(git reset --hard:*)",
+            "Bash(git clean:*)",
+            "Bash(rm -rf:*)",
+            "Bash(npm publish:*)"
+          ]
+        }
+      }
+    },
+    ".agents/skills/desk/SKILL.md": {
+      "kind": "file",
+      "hash": "589ed15cdd3836e2"
+    },
+    ".codex/hooks.json": {
+      "kind": "json",
+      "patch": {
+        "hooks": {
+          "SessionStart": [
+            {
+              "hooks": [
+                {
+                  "type": "command",
+                  "command": "d=\"$PWD\"; while [ \"$d\" != / ] && [ ! -f \"$d/.agentkit.json\" ]; do d=$(dirname \"$d\"); done; node \"$d/.agentkit/hooks/session-start.mjs\"",
+                  "timeout": 10
+                }
+              ]
+            }
+          ],
+          "UserPromptSubmit": [
+            {
+              "hooks": [
+                {
+                  "type": "command",
+                  "command": "d=\"$PWD\"; while [ \"$d\" != / ] && [ ! -f \"$d/.agentkit.json\" ]; do d=$(dirname \"$d\"); done; node \"$d/.agentkit/hooks/capture.mjs\"",
+                  "timeout": 10
+                }
+              ]
+            }
+          ],
+          "PreToolUse": [
+            {
+              "matcher": "apply_patch|Edit|Write",
+              "hooks": [
+                {
+                  "type": "command",
+                  "command": "d=\"$PWD\"; while [ \"$d\" != / ] && [ ! -f \"$d/.agentkit.json\" ]; do d=$(dirname \"$d\"); done; node \"$d/.agentkit/hooks/guard.mjs\"",
+                  "timeout": 10
+                }
+              ]
+            }
+          ],
+          "PostToolUse": [
+            {
+              "matcher": "apply_patch|Edit|Write",
+              "hooks": [
+                {
+                  "type": "command",
+                  "command": "d=\"$PWD\"; while [ \"$d\" != / ] && [ ! -f \"$d/.agentkit.json\" ]; do d=$(dirname \"$d\"); done; node \"$d/.agentkit/hooks/desk-check.mjs\"",
+                  "timeout": 10
+                }
+              ]
+            }
+          ],
+          "Stop": [
+            {
+              "hooks": [
+                {
+                  "type": "command",
+                  "command": "d=\"$PWD\"; while [ \"$d\" != / ] && [ ! -f \"$d/.agentkit.json\" ]; do d=$(dirname \"$d\"); done; node \"$d/.agentkit/hooks/stop-check.mjs\"",
+                  "timeout": 10
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    ".opencode/plugins/agentkit-desk/index.js": {
+      "kind": "file",
+      "hash": "a90e52690feabc8f"
+    },
+    ".pi/extensions/agentkit-desk.js": {
+      "kind": "file",
+      "hash": "f3be76fb4eff84ef"
+    },
+    ".omp/extensions/agentkit-desk.js": {
+      "kind": "file",
+      "hash": "f3be76fb4eff84ef"
+    },
+    ".cursor/rules/agentkit-desk.mdc": {
+      "kind": "file",
+      "hash": "739d36437f9f36c4"
+    }
+  }
+}

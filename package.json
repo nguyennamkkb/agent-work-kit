@@ -1,0 +1,31 @@
+{
+  "name": "agent-work-kit",
+  "version": "0.1.0",
+  "description": "Long-running work harness for coding agents: one neutral source, adapters for AGENTS.md, Claude Code, Cursor and Codex, with a human-approved self-improvement loop.",
+  "type": "module",
+  "bin": {
+    "agent-work-kit": "bin/cli.js",
+    "agentkit": "bin/cli.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "kit",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "agents",
+    "claude-code",
+    "cursor",
+    "codex",
+    "agents-md",
+    "harness"
+  ],
+  "license": "MIT"
+}
