@@ -7,14 +7,14 @@ Mỗi dự án có một cái bàn, và bàn chỉ phục vụ một nghề. M�
 ## 1. Cài đặt
 
 ```bash
-npx agent-work-kit init --ios          # bàn cho iOS dev
-npx agent-work-kit init --designer     # bàn cho designer
-npx agent-work-kit init                # không truyền nghề thì kit hỏi
+npx github:nguyennamkkb/agent-work-kit init --ios          # bàn cho iOS dev
+npx github:nguyennamkkb/agent-work-kit init --designer     # bàn cho designer
+npx github:nguyennamkkb/agent-work-kit init                # không truyền nghề thì kit hỏi
 ```
 
 - Mỗi cờ nghề (`--ios`, `--designer`, …) ứng với một gói trong `kit/nghe/<tên>/`. Mỗi bàn chỉ có một nghề, nên truyền hai cờ nghề sẽ báo lỗi.
 - Harness tự phát hiện (`.claude/`, `.cursor/`, `.codex/`). Có thể ép bằng cờ ngắn: `--claude`, `--cursor`, `--codex`.
-- Đổi nghề: `npx agent-work-kit switch --designer`. Lệnh này giữ nguyên các vùng của bàn, chỉ thay gói nghề.
+- Đổi nghề: `npx github:nguyennamkkb/agent-work-kit switch --designer`. Lệnh này giữ nguyên các vùng của bàn, chỉ thay gói nghề.
 - Lấy gói nghề từ nguồn khác (giai đoạn sau): `--from github:team-abc/kit-ios`.
 
 Các lệnh còn lại giữ nguyên: `update`, `doctor`, `review`, `remove`. Thêm lệnh `desk` để xem mặt bàn trong terminal.
@@ -122,7 +122,7 @@ Snapshot tests live in `Tests/Snapshots/`, regenerate with `make snap`.
 ## 5. Cập nhật rule nghề
 
 ```
-$ npx agent-work-kit update
+$ npx github:nguyennamkkb/agent-work-kit update
 ios 1.2.0 → 1.3.0
   + IOS-031  rule mới                          → tự áp dụng
   ~ IOS-007  nội dung đổi                      → tự áp dụng

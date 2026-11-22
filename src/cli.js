@@ -16,8 +16,8 @@ const COMMANDS = { init, switch: switchCmd, update, doctor, remove, review, desk
 const help = () => `agent-work-kit — one desk per project, one profession per desk
 
 Usage
-  npx agent-work-kit init --<profession>     ${availableNghe().map((n) => '--' + n.name).join(', ')}
-  npx agent-work-kit <command> [options]
+  npx github:nguyennamkkb/agent-work-kit init --<profession>     ${availableNghe().map((n) => '--' + n.name).join(', ')}
+  npx github:nguyennamkkb/agent-work-kit <command> [options]
 
 Commands
   init      Set up the desk and the profession rules (asks if no profession given)

@@ -46,7 +46,7 @@ ${prev ? `### ${id} · ${prev.kind}\n${prev.body}` : '(unknown)'}
 ${local.body}
 
 ## If the kit version is better
-Tell the agent "use the kit rule for ${id}" (it removes the project rule), or run \`npx agent-work-kit review --drop ${base}\`.
+Tell the agent "use the kit rule for ${id}" (it removes the project rule), or run \`npx github:nguyennamkkb/agent-work-kit review --drop ${base}\`.
 `;
   if (!dryRun) {
     writeText(p, text);
@@ -97,7 +97,9 @@ export function sync(ctx, { force = false, dryRun = false } = {}) {
         log(cur == null ? 'create' : 'insert-block', r);
         files[r] = { kind: 'block', hash: h };
       } else if (blk.inner.trim() === out.content.trim()) {
-        log('ok', r);
+        const fresh = upsertBlock(cur, out.content); // refreshes the header note if it changed
+        if (fresh !== cur) write(out.path, fresh);
+        log(fresh !== cur ? 'update' : 'ok', r);
         files[r] = { kind: 'block', hash: h, ...keep };
       } else if (force || (before && sha(blk.inner.trim()) === before.hash)) {
         write(out.path, upsertBlock(cur, out.content));

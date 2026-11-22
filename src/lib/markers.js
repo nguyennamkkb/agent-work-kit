@@ -1,7 +1,7 @@
 export const START = '<!-- agentkit:start -->';
 export const END = '<!-- agentkit:end -->';
 const NOTE =
-  '<!-- Managed by agent-work-kit (`npx agent-work-kit update`). Do not edit inside. Project notes go below the end marker; project rules go to .desk/rules.local.md. -->';
+  '<!-- Managed by agent-work-kit (`npx github:nguyennamkkb/agent-work-kit update`). Do not edit inside. Project notes go below the end marker; project rules go to .desk/rules.local.md. -->';
 
 /** Returns { before, inner, after } or null when the file has no kit block. */
 export function extractBlock(text) {
@@ -11,7 +11,7 @@ export function extractBlock(text) {
   if (s < 0 || e < 0 || e < s) return null;
   let inner = text.slice(s + START.length, e);
   inner = inner.replace(/^\n/, '').replace(/\n$/, '');
-  if (inner.startsWith(NOTE)) inner = inner.slice(NOTE.length).replace(/^\n/, '');
+  inner = inner.replace(/^<!-- Managed by agent-work-kit[^\n]*-->\n?/, ''); // any version of the note
   return { before: text.slice(0, s), inner, after: text.slice(e + END.length) };
 }
 

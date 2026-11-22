@@ -14,7 +14,7 @@ const writes = normalizeWrites(root, input.tool_name, input.tool_input ?? {}, in
 if (!writes.length) process.exit(0);
 
 const KIT_HINT =
-  'Kit files change only via `npx agent-work-kit update`. To change how work is done, draft a proposal in .desk/review/ and ask the user in one sentence; approved project rules go to .desk/rules.local.md.';
+  'Kit files change only via `npx github:nguyennamkkb/agent-work-kit update`. To change how work is done, draft a proposal in .desk/review/ and ask the user in one sentence; approved project rules go to .desk/rules.local.md.';
 const problems = [];
 const m = findManifest(root);
 

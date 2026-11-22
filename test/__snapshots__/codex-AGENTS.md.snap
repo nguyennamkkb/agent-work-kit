@@ -1,5 +1,5 @@
 <!-- agentkit:start -->
-<!-- Managed by agent-work-kit (`npx agent-work-kit update`). Do not edit inside. Project notes go below the end marker; project rules go to .desk/rules.local.md. -->
+<!-- Managed by agent-work-kit (`npx github:nguyennamkkb/agent-work-kit update`). Do not edit inside. Project notes go below the end marker; project rules go to .desk/rules.local.md. -->
 # Desk — iOS (agent-work-kit)
 Every task, decision and lesson lives in exactly one zone in `.desk/`. Nothing important lives only in chat.
 - At the start of every session load the **desk** skill (`.agents/skills/desk/SKILL.md`) and follow it: the method + the iOS profession rules.

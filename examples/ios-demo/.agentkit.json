@@ -52,7 +52,7 @@
     "cursor"
   ],
   "installedAt": "2026-11-22T03:09:18.079Z",
-  "updatedAt": "2026-11-22T03:09:18.079Z",
+  "updatedAt": "2026-11-22T04:31:59.453Z",
   "files": {
     "AGENTS.md": {
       "kind": "block",
@@ -72,7 +72,7 @@
     },
     ".agentkit/hooks/guard.mjs": {
       "kind": "file",
-      "hash": "8aa4f061fffab2c0"
+      "hash": "5aba6022de973548"
     },
     ".agentkit/hooks/session-start.mjs": {
       "kind": "file",
@@ -88,7 +88,7 @@
     },
     ".claude/skills/desk/SKILL.md": {
       "kind": "file",
-      "hash": "589ed15cdd3836e2"
+      "hash": "631c443106957e4a"
     },
     ".claude/settings.json": {
       "kind": "json",
@@ -165,7 +165,7 @@
     },
     ".agents/skills/desk/SKILL.md": {
       "kind": "file",
-      "hash": "589ed15cdd3836e2"
+      "hash": "631c443106957e4a"
     },
     ".codex/hooks.json": {
       "kind": "json",
@@ -245,7 +245,7 @@
     },
     ".cursor/rules/agentkit-desk.mdc": {
       "kind": "file",
-      "hash": "739d36437f9f36c4"
+      "hash": "01f0240b938de336"
     }
   }
 }

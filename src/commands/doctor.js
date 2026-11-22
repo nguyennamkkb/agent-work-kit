@@ -20,12 +20,12 @@ export default async function doctor(opts) {
   Number(process.versions.node.split('.')[0]) >= 18 ? ok(`node ${process.versions.node}`) : err('Node 18+ required for hooks');
   const m = loadManifest(makeCtx({ root }));
   if (!m) {
-    err(`no ${MANIFEST} — run \`npx agent-work-kit init --<profession>\``);
+    err(`no ${MANIFEST} — run \`npx github:nguyennamkkb/agent-work-kit init --<profession>\``);
     return 1;
   }
   ok(`${m.nghe.title} desk · rules ${m.nghe.version} · kit ${m.version} · harness: ${m.harnesses.join(', ') || 'AGENTS.md only'}`);
   const kit = loadKit(m.nghe.name);
-  if (m.version !== kitVersion() || m.nghe.version !== kit.nghe.version) warn(`update available (kit ${kitVersion()}, ${m.nghe.name} rules ${kit.nghe.version}) — \`npx agent-work-kit update\``);
+  if (m.version !== kitVersion() || m.nghe.version !== kit.nghe.version) warn(`update available (kit ${kitVersion()}, ${m.nghe.name} rules ${kit.nghe.version}) — \`npx github:nguyennamkkb/agent-work-kit update\``);
 
   let edited = 0;
   for (const [rel, e] of Object.entries(m.files)) {
@@ -57,7 +57,7 @@ export default async function doctor(opts) {
   if (orphans.length) warn(`rules.local.md overrides unknown rules: ${orphans.map((r) => r.id).join(', ')}`);
   ok(`rules: ${known.size} ${m.nghe.name} + ${local.length} project`);
   const pending = listReview(root).filter((r) => !r.archived && r.status === 'pending');
-  if (pending.length) warn(`${pending.length} item(s) waiting for your decision — \`npx agent-work-kit review\``);
+  if (pending.length) warn(`${pending.length} item(s) waiting for your decision — \`npx github:nguyennamkkb/agent-work-kit review\``);
   git(root, ['rev-parse', '--is-inside-work-tree']) === 'true' ? ok('git repository') : warn('not a git repository — commits are the desk checkpoints');
   if (m.harnesses.includes('codex')) warn('Codex: project hooks run only after you trust them once with `/hooks` in Codex');
   if (m.harnesses.includes('pi')) warn('Pi: project extensions load only after you trust the project when Pi asks');

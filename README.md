@@ -14,15 +14,15 @@ Bộ khung giúp coding agent làm việc dài hơi trong một dự án. Mỗi 
 ## Cài đặt
 
 ```bash
-npx agent-work-kit init --ios          # bàn cho iOS developer
-npx agent-work-kit init --designer     # bàn cho product designer (Figma)
+npx github:nguyennamkkb/agent-work-kit init --ios          # bàn cho iOS developer
+npx github:nguyennamkkb/agent-work-kit init --designer     # bàn cho product designer (Figma)
 ```
 
 - Chỉ cần Node 18 trở lên. Kit không có dependency nào.
 - Harness được tự phát hiện từ thư mục dự án (`.claude/`, `.codex/`, `.opencode/`, `.pi/`, `.omp/`, `.cursor/`). Nếu không tìm thấy harness nào, kit dùng Claude Code. Muốn chọn thẳng thì thêm cờ:
 
 ```bash
-npx agent-work-kit init --ios --claude --codex --opencode --pi --omp --cursor
+npx github:nguyennamkkb/agent-work-kit init --ios --claude --codex --opencode --pi --omp --cursor
 ```
 
 - Mỗi bàn chỉ có một nghề. Truyền hai cờ nghề cùng lúc sẽ báo lỗi.
@@ -56,7 +56,7 @@ Kit có bốn cơ chế: hiện mặt bàn đầu phiên, đọc câu người d
 - Mọi harness đều đọc `AGENTS.md`. Claude Code đọc qua `CLAUDE.md` có dòng `@AGENTS.md`.
 - Plugin và extension chỉ dùng thư viện có sẵn của Node, không import package ngoài nào, kể cả SDK của chính harness.
 - Nếu plugin gặp lỗi, harness vẫn chạy bình thường. Kit không bao giờ làm hỏng phiên làm việc.
-- Cursor không có hook, nên các kiểm tra nằm dưới dạng checklist trong `AGENTS.md`. Chạy `npx agent-work-kit desk` để kiểm bàn bằng tay.
+- Cursor không có hook, nên các kiểm tra nằm dưới dạng checklist trong `AGENTS.md`. Chạy `npx github:nguyennamkkb/agent-work-kit desk` để kiểm bàn bằng tay.
 
 ---
 
@@ -165,7 +165,7 @@ Thứ tự ưu tiên: rule dự án > rule nghề > phương pháp bàn.
 ### Cập nhật kit
 
 ```bash
-npx agent-work-kit update
+npx github:nguyennamkkb/agent-work-kit update
 ```
 
 Kit so rule theo ID:
