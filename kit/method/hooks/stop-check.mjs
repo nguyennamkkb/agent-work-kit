@@ -49,8 +49,8 @@ const problems = [];
 
 const w = workerContext(droot, checkout);
 if (w) {
-  const id = /You are a worker: (Q-\d+)/.exec(w)?.[1];
-  problems.push(`you are worker ${id}: report before stopping — \`worker ${id} done --outcome … --summary "…"\` when finished, or \`ask\`/\`escalate\` if you are waiting (then end your turn)`);
+  const id = /You are a worker: (Q-\d+)/.exec(w)?.[1] ?? '<task id>';
+  problems.push(`you are worker ${id}: report before stopping — \`worker ${id} done --outcome … --summary "…"\` (the REPORT commands in your brief) when finished, or \`ask\`/\`escalate\` if you are waiting (then end your turn)`);
 } else {
   const inbox = tasks(desk, 'inbox');
   if (inbox.length) problems.push(`the inbox holds ${inbox.length} item(s) (${inbox.map((t) => t.id).join(', ')}) — \`${C} file ID task|memory|lesson\` or \`drop ID --why\``);

@@ -791,6 +791,17 @@ function planGit(droot) {
   return out;
 }
 
+/** Re-render DESK.md and desk.html from the current desk, for changes outside desk.json (worktrees, branches). */
+export function refreshViews(droot) {
+  try {
+    const desk = load(droot);
+    writeAtomic(paths(droot).md, renderMd(droot, desk));
+    renderHtml(droot, desk);
+  } catch {
+    /* views are best effort */
+  }
+}
+
 export function renderHtml(droot, desk) {
   const tpl = read(path.join(HERE, 'dashboard.html'));
   if (!tpl || !tpl.includes('/*DESK*/')) return;

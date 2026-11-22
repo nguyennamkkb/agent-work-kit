@@ -408,12 +408,19 @@ export function gate(droot, team, slug) {
   const open = ts.filter((t) => !TASK_CLOSED.includes(t.status));
   add(ts.length > 0 && !open.length, open.length ? `open tasks: ${open.map((t) => `${t.id} ${t.status}`).join(', ')}` : `all ${ts.length} task(s) of the plan are closed`);
   const head = git(root, ['rev-parse', `plan/${slug}`]);
+  if (!head && ts.length && !open.length && !ts.some((t) => t.status === 'failed'))
+    return { checks: [...checks, { ok: true, text: `plan/${slug} is already merged and closed (branch removed)` }], pass: true, manual: [] };
   add(!!head, head ? `branch plan/${slug} @ ${head.slice(0, 9)}` : `no branch plan/${slug}`);
   const headTime = Number(git(root, ['log', '-1', '--format=%ct', `plan/${slug}`]) ?? 0) * 1000;
   const testers = ts.filter((t) => t.role === 'tester' && t.status === 'done');
   const tested = testers.find((t) => (t.sha && head?.startsWith(t.sha)) || (t.proof ?? '').includes(head?.slice(0, 7) ?? '#') || Date.parse(t.history?.at(-1)?.at ?? 0) >= headTime);
   add(!!tested || !team.test.command, tested ? `tester ${tested.id} green on the current HEAD` : team.test.command ? 'no green tester report on the current HEAD — dispatch a tester' : 'no test command in team.json (gate skipped)');
-  add(head && git(root, ['merge-base', '--is-ancestor', team.mainBranch, `plan/${slug}`]) != null, `plan/${slug} contains ${team.mainBranch} (rebased)`);
+  // Up to date with main — except for the lead's own bookkeeping: commits on main that only touch .desk/ do not
+  // change the code under test, so they must not force a rebase and a retest round.
+  const contains = head && git(root, ['merge-base', '--is-ancestor', team.mainBranch, `plan/${slug}`]) != null;
+  const aheadFiles = head && !contains ? (git(root, ['log', `plan/${slug}..${team.mainBranch}`, '--name-only', '--format=']) ?? '').split('\n').filter(Boolean) : [];
+  const deskOnly = !contains && aheadFiles.length > 0 && aheadFiles.every((f) => f.startsWith(DESK + '/'));
+  add(contains || deskOnly, contains ? `plan/${slug} contains ${team.mainBranch} (rebased)` : deskOnly ? `${team.mainBranch} is ahead only by desk bookkeeping (.desk/) — no rebase or retest needed` : `plan/${slug} is behind ${team.mainBranch} by code changes — rebase, then retest`);
   const wt = planWorktrees(root)[slug];
   add(!wt || !git(wt, ['status', '--porcelain']), wt ? 'worktree clean' : 'no worktree (parked)');
   const failed = ts.filter((t) => t.status === 'failed');
@@ -798,11 +805,21 @@ export function worker(droot, id, verb, o = {}) {
 }
 
 /** The worker's own surface: inside a worker terminal or a plan worktree, show only its task. */
+/**
+ * A worker, as opposed to the lead: running in a linked worktree of the desk's repository (a plan worktree), or in
+ * an Orca worker terminal. Decided without the desk, because a worker starts before the lead has recorded its
+ * dispatch; a worker must never count as a lead session (that would also clear the lead's `team allow`).
+ */
+export const isWorkerEnv = (droot, checkout) => path.resolve(checkout) !== path.resolve(droot) || /^structworker_/.test(process.env.ORCA_TERMINAL_HANDLE ?? '');
+
 export function workerContext(droot, checkout) {
   const desk = load(droot);
   const handle = process.env.ORCA_TERMINAL_HANDLE;
   const mine = tasks(desk, 'doing').filter((t) => t.executor === 'orca' && ((handle && t.terminal === handle) || (t.worktree && path.resolve(t.worktree.replace(/^path:/, '')) === path.resolve(checkout) && path.resolve(checkout) !== path.resolve(droot))));
-  if (!mine.length) return null;
+  if (!mine.length)
+    return isWorkerEnv(droot, checkout)
+      ? `[desk] You are a worker in ${path.resolve(checkout) !== path.resolve(droot) ? 'a plan worktree' : 'an Orca worker terminal'}; the desk belongs to the lead. Follow your brief and report only with its REPORT commands (worker <task id> …).`
+      : null;
   const t = mine.length === 1 ? mine[0] : mine.find((x) => x.terminal === handle) ?? mine[0];
   return `[desk] You are a worker: ${fmt(t)} (${t.role ?? 'engineer'}${t.plan ? `, plan ${t.plan}` : ''}). Your brief: ${t.spec ?? '(see the task)'} — follow it and report only with its REPORT commands (worker ${t.id} …). The lead's desk is not yours to change.`;
 }

@@ -1,0 +1,9 @@
+{
+  "name": "linh-studio-landing",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/check.mjs",
+    "test": "node --test"
+  }
+}

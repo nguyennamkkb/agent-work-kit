@@ -240,19 +240,21 @@ export function run(argv, { cwd = process.cwd(), home = null, out = (s) => proce
     case 'wt': {
       const team = T.loadTeam(droot);
       const sub = pos.shift() ?? 'status';
+      // Worktrees live in git, not desk.json: re-render the views right after any change.
+      const done = (x) => (S.refreshViews(droot), x);
       if (sub === 'status') {
         const st = T.wtStatus(droot, team);
         return print(st.length ? st.map((w) => `[${w.state}] plan/${w.slug} ahead ${w.ahead} behind ${w.behind} · tasks ${w.tasks - w.open}/${w.tasks} closed${w.path ? ` · ${w.path}` : ''}\n   → ${w.todo}`) : 'worktrees: none');
       }
       if (sub === 'open') {
-        const r = T.wtOpen(droot, team, pos[0], { base: o.base });
+        const r = done(T.wtOpen(droot, team, pos[0], { base: o.base }));
         return print(ok(`${r.existed ? 'exists' : r.reopened ? 'reopened' : 'opened'} ${r.path}`));
       }
-      if (sub === 'park') return print(ok(`plan/${pos[0]} parked @ ${T.wtPark(droot, pos[0]).sha.slice(0, 9)} (wt open ${pos[0]} reopens it)`));
-      if (sub === 'close') return T.wtClose(droot, team, pos[0]), print(ok(`plan/${pos[0]} closed (merged)`));
-      if (sub === 'drop') return print(ok(`plan/${pos[0]} dropped (git branch plan/${pos[0]} ${T.wtDrop(droot, pos[0], { yes: o.yes }).sha.slice(0, 9)} restores it)`));
+      if (sub === 'park') return print(ok(`plan/${pos[0]} parked @ ${done(T.wtPark(droot, pos[0])).sha.slice(0, 9)} (wt open ${pos[0]} reopens it)`));
+      if (sub === 'close') return done(T.wtClose(droot, team, pos[0])), print(ok(`plan/${pos[0]} closed (merged)`));
+      if (sub === 'drop') return print(ok(`plan/${pos[0]} dropped (git branch plan/${pos[0]} ${done(T.wtDrop(droot, pos[0], { yes: o.yes })).sha.slice(0, 9)} restores it)`));
       if (sub === 'tidy') {
-        const acts = T.wtTidy(droot, team, { dryRun: o.dryRun });
+        const acts = done(T.wtTidy(droot, team, { dryRun: o.dryRun }));
         return print(acts.length ? acts : 'tidy: nothing to do');
       }
       throw new Error('wt status|open|park|close|drop|tidy');

@@ -240,3 +240,53 @@ test('the npx CLI passes desk verbs and their flags through untouched', () => {
   assert.match(r.stdout, /Q-1 P0 added and started/);
   assert.equal(S.focus(S.load(root)).done, 'crash gone');
 });
+
+test('a worker starting before the lead records it never counts as a lead session nor clears team allow', () => {
+  const { root, base, desk } = project();
+  desk('plan', 'login', '--goal', 'Email login');
+  sh(root, 'add', '-A');
+  sh(root, 'commit', '-q', '-m', 'plan');
+  desk('wt', 'open', 'login');
+  desk('team', 'allow', '--quote', 'ok');
+  const wt = path.join(base, 'app-plan-login');
+  const before = JSON.parse(fs.readFileSync(path.join(root, '.desk/.state.json'), 'utf8'));
+  // the worker's harness starts its session hook in the plan worktree; no task names it yet
+  const r = spawnSync(process.execPath, [path.join(root, '.agentkit/hooks/session-start.mjs')], { input: JSON.stringify({ cwd: wt, source: 'startup' }), encoding: 'utf8', env: { ...process.env, CLAUDE_PROJECT_DIR: wt, AGENTKIT_ROOT: '' } });
+  assert.match(r.stdout, /You are a worker in a plan worktree/);
+  const r2 = spawnSync(process.execPath, [path.join(root, '.agentkit/hooks/session-start.mjs')], { input: JSON.stringify({ cwd: root, source: 'startup' }), encoding: 'utf8', env: { ...process.env, CLAUDE_PROJECT_DIR: root, ORCA_TERMINAL_HANDLE: 'structworker_abc' } });
+  assert.match(r2.stdout, /an Orca worker terminal/);
+  const after = JSON.parse(fs.readFileSync(path.join(root, '.desk/.state.json'), 'utf8'));
+  assert.equal(after.session, before.session, 'no new lead session');
+  assert.ok(after.teamAllowed, 'the lead keeps its permission');
+});
+
+test('gate on a plan already merged and closed passes and says so', () => {
+  const { root, desk } = project();
+  desk('plan', 'about', '--goal', 'About page');
+  sh(root, 'add', '-A');
+  sh(root, 'commit', '-q', '-m', 'plan');
+  desk('add', 'P1', 'about page', '--plan', 'about', '--now');
+  desk('done', '--proof', 'merged');
+  assert.match(desk('gate', 'about'), /already merged and closed[\s\S]*gate: mechanical checks pass/);
+});
+
+test('gate: main ahead only by desk bookkeeping needs no rebase; real code on main does', () => {
+  const { root, base, desk } = project();
+  desk('plan', 'hero', '--goal', 'Hero');
+  sh(root, 'add', '-A');
+  sh(root, 'commit', '-q', '-m', 'plan');
+  desk('wt', 'open', 'hero');
+  const wt = path.join(base, 'app-plan-hero');
+  fs.writeFileSync(path.join(wt, 'Hero.swift'), 'struct Hero {}\n');
+  sh(wt, 'add', '-A');
+  sh(wt, 'commit', '-q', '-m', 'hero');
+  desk('add', 'tester: hero', '--plan', 'hero', '--role', 'tester', '--now');
+  desk('done', '--proof', `green @ ${sh(wt, 'rev-parse', '--short', 'HEAD')}`);
+  sh(root, 'add', '-A');
+  sh(root, 'commit', '-q', '-m', 'desk: bookkeeping on main');
+  assert.match(desk('gate', 'hero'), /ahead only by desk bookkeeping[\s\S]*gate: mechanical checks pass/);
+  fs.writeFileSync(path.join(root, 'Other.swift'), 'x\n');
+  sh(root, 'add', '-A');
+  sh(root, 'commit', '-q', '-m', 'code on main');
+  assert.match(desk('gate', 'hero'), /behind main by code changes[\s\S]*gate: NOT ready/);
+});

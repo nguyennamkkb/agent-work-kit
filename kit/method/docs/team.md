@@ -73,7 +73,7 @@ Workers read their inbox before each new file and after every build. `C send Q-9
 1. every task of the plan closed (`C gate <slug>` checks it), none failed;
 2. a tester's green report on the branch's **current** HEAD;
 3. you read the whole `git diff <main>...plan/<slug>` against the plan; every deviation fixed or recorded;
-4. after rebasing on main, build and unit tests green again;
+4. the branch contains main's code: rebase only when main moved by code changes (then build and retest); commits that only touch `.desk/` (your bookkeeping) need neither — `gate` knows the difference;
 5. the user asked for merges — otherwise leave it merge-ready and say so.
 
 ## Keeping it honest
