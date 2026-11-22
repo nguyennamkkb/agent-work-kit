@@ -1,5 +1,3 @@
-
-// ---- OpenCode (V2 plugin): maps host hooks onto the shared desk hooks.
 export default {
   id: 'agentkit-desk',
   async setup(ctx) {
@@ -22,22 +20,19 @@ export default {
         const parts = [];
         if (!started.has(sid)) {
           started.add(sid);
-          parts.push(akSessionStart(root, true, sid)); // a resumed session id (e.g. `opencode run -c`) is not a new session
+          parts.push(akSessionStart(root, true, sid));
         }
         parts.push(akCapture(root, e?.prompt?.text));
         const text = parts.filter(Boolean).join('\n\n');
         if (!text) return;
-        // Durable per-session instruction entry; if this host build lacks it, carry the context with the prompt.
         let ok = false;
         try {
           await ctx.session.instructions.entry.put({ sessionID: sid, key: 'agentkit-desk', value: text });
           ok = true;
         } catch {
-          /* not available in this build */
         }
         if (!ok && e.prompt) e.prompt.text = `${e.prompt.text}\n\n<agentkit-desk>\n${text}\n</agentkit-desk>`;
       } catch {
-        /* fail open */
       }
     });
 

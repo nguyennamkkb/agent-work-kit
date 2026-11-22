@@ -1,6 +1,3 @@
-// agent-work-kit — the desk: one board (.desk/desk.json) for the lead, its subagents and its workers.
-// Only the `desk` command (and the hooks) write it; DESK.md, archive/ and desk.html are generated views.
-// Kit-managed: do not edit.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -12,9 +9,9 @@ export const TASK_CLOSED = ['done', 'dropped', 'failed'];
 export const STATUSES = [...TASK_OPEN, ...TASK_CLOSED];
 export const PRIOS = ['P0', 'P1', 'P2', 'P3'];
 export const CAPS = { goal: 5, pinned: 10, keepClosed: 12, history: 20, undo: 30, todo: 20 };
-export const PROMOTE_USES = 3; // used ≥3× → pinned memory
-export const STALE_SESSIONS = 5; // untouched 5 sessions → one priority lower
-export const PROPOSE_SEEN = 2; // lesson seen ≥2× → propose a durable fix
+export const PROMOTE_USES = 3;
+export const STALE_SESSIONS = 5;
+export const PROPOSE_SEEN = 2;
 export const ICON = { inbox: '📥', todo: '⬜', doing: '🔵', waiting: '⏸', review: '🟡', done: '✅', dropped: '⏹', failed: '❌' };
 const PREFIX = { task: 'Q', memory: 'M', lesson: 'L' };
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -51,12 +48,6 @@ function normalize(d) {
 
 const sameAs = (desk) => JSON.stringify({ ...desk, updated: undefined });
 
-/**
- * Load → change → save, under the desk lock. Nothing changed → nothing is written.
- * Real changes snapshot the previous state for `undo` and re-render DESK.md and desk.html.
- * Bookkeeping (`{ bookkeeping: true }`, or fn returning `{ bookkeeping: true }`: counters the hooks bump)
- * writes desk.json only — no undo snapshot, no re-render. Returns fn's result.
- */
 export function mutate(droot, op, fn, { bookkeeping = false } = {}) {
   const p = paths(droot);
   return withLock(p.dir, () => {
@@ -92,11 +83,9 @@ export function save(droot, desk, { views = true } = {}) {
     writeAtomic(p.md, renderMd(droot, desk));
     renderHtml(droot, desk);
   } catch {
-    /* views are best effort */
   }
 }
 
-// ---------------------------------------------------------------- items
 export const tasks = (desk, ...st) => desk.items.filter((i) => i.kind === 'task' && (!st.length || st.includes(i.status)));
 export const memories = (desk) => desk.items.filter((i) => i.kind === 'memory');
 export const lessons = (desk) => desk.items.filter((i) => i.kind === 'lesson');
@@ -136,7 +125,6 @@ function newItem(desk, kind, fields) {
   return it;
 }
 
-// ---------------------------------------------------------------- task operations
 export function depsOpen(droot, desk, t) {
   const byId = new Map(desk.items.map((i) => [i.id, i]));
   return (t.deps ?? []).filter((d) => {
@@ -203,7 +191,6 @@ export function editItem(desk, id, f) {
   return it;
 }
 
-/** Make `id` the lead's task in progress; the previous one goes back to todo with its `next`. */
 export function startTask(desk, id, { next, note } = {}) {
   const t = find(desk, id, 'task');
   if (!['todo', 'inbox', 'waiting', 'review', 'doing'].includes(t.status)) throw new Error(`${t.id} is ${t.status}; reopen it with \`resume ${t.id}\` first`);
@@ -251,7 +238,6 @@ export function resumeTask(desk, id, { note } = {}) {
   return t;
 }
 
-/** Close a task with proof. Parents close by themselves when every child is done. */
 export function doneTask(droot, desk, id, { proof, sha, force } = {}) {
   const t = id ? find(desk, id, 'task') : focus(desk);
   if (!t) throw new Error('done: no task in progress; name it (done Q-7 --proof "…")');
@@ -261,7 +247,7 @@ export function doneTask(droot, desk, id, { proof, sha, force } = {}) {
   if (!proof && !sha && !t.proof && !t.sha) throw new Error(`done needs proof: --proof "<the check that passed>"${t.done ? ` (its check: ${t.done})` : ''}`);
   if (proof) t.proof = String(proof);
   if (sha) t.sha = String(sha).slice(0, 12);
-  delete t.next; // a closed task has no next step
+  delete t.next;
   t.closed = today();
   log(t, 'done', proof ?? (sha ? `sha ${sha}` : 'done'));
   const freed = releaseLeases(desk, t.id);
@@ -310,7 +296,6 @@ export function splitTask(desk, id, parts, { files } = {}) {
   return { item: t, made };
 }
 
-/** Waiting tasks whose dep closed or whose date arrived go back to todo. */
 export function wakeWaiting(droot, desk) {
   const woke = [];
   const byId = new Map(desk.items.map((i) => [i.id, i]));
@@ -361,7 +346,6 @@ export function touch(desk, id) {
   return it;
 }
 
-// ---------------------------------------------------------------- memory, lessons, goal, inbox
 const similar = (a, b) => {
   const A = new Set(words(a).filter((w) => !STOP.has(w)));
   const B = new Set(words(b).filter((w) => !STOP.has(w)));
@@ -410,7 +394,6 @@ export function addInbox(desk, text, { auto } = {}) {
   return t;
 }
 
-/** Sort an inbox item: becomes a task (todo), a memory or a lesson. */
 export function fileItem(desk, id, as, prio) {
   const it = find(desk, id);
   if (it.status !== 'inbox') throw new Error(`${it.id} is not in the inbox`);
@@ -425,7 +408,6 @@ export function fileItem(desk, id, as, prio) {
   throw new Error('file ID task|memory|lesson [P0-3]');
 }
 
-/** Restore the desk as it was before the last change. */
 export function undo(droot) {
   const p = paths(droot);
   return withLock(p.dir, () => {
@@ -433,7 +415,6 @@ export function undo(droot) {
     try {
       all = fs.readdirSync(p.undo).sort();
     } catch {
-      /* none */
     }
     const last = all.pop();
     if (!last) throw new Error('nothing to undo');
@@ -445,18 +426,12 @@ export function undo(droot) {
   });
 }
 
-// ---------------------------------------------------------------- automatic importance (session start)
 function staleBefore(state) {
   const s = state?.sessions ?? [];
   return s.length > STALE_SESSIONS ? s[s.length - 1 - STALE_SESSIONS] : null;
 }
 const DOWN = { P0: 'P1', P1: 'P2', P2: 'P3', P3: null };
 
-/**
- * Mechanical sorting so neither the user nor the agent has to: a todo untouched for STALE_SESSIONS sessions drops one
- * level (P3 → dropped as stale, undo brings it back); memory used ≥PROMOTE_USES× gets pinned, a pinned memory
- * untouched that long is unpinned, at most CAPS.pinned stay pinned; waiting tasks wake up.
- */
 export function autoSort(droot, desk, state) {
   const moves = [];
   const cut = staleBefore(state);
@@ -485,7 +460,6 @@ export function autoSort(droot, desk, state) {
 }
 const sortMem = (list) => [...list].sort((a, b) => a.prio.localeCompare(b.prio) || (b.uses ?? 0) - (a.uses ?? 0));
 
-/** Items the user (or a file edit) refers to: by id, by ≥2 shared words, or by a ref path. Bumps them. */
 export function bumpMatches(desk, { text = '', file = null } = {}) {
   const tokens = new Set(words(text).filter((w) => !STOP.has(w)));
   const hit = [];
@@ -498,11 +472,10 @@ export function bumpMatches(desk, { text = '', file = null } = {}) {
       const own = new Set(words(it.text).filter((w) => !STOP.has(w)));
       let n = 0;
       for (const w of own) if (tokens.has(w)) n++;
-      // ≥2 shared words, and at least half of the shorter side (capped at 6): long texts need more overlap
       yes = n >= 2 && n >= Math.ceil(0.5 * Math.min(own.size, tokens.size, 6));
     }
     if (yes) {
-      if (it.last !== today()) it.uses = (it.uses ?? 0) + 1; // at most once a day: steady diffs, honest counts
+      if (it.last !== today()) it.uses = (it.uses ?? 0) + 1;
       it.last = today();
       hit.push(it);
     }
@@ -510,9 +483,6 @@ export function bumpMatches(desk, { text = '', file = null } = {}) {
   return hit;
 }
 
-// ---------------------------------------------------------------- archive (closed items leave the desk)
-// archive/YYYY-MM.md: one human line per closed task. archive/YYYY-MM.jsonl: one compact summary per closed or
-// retired item (no history), read newest month first. Legacy .desk/archive.jsonl is folded in by `compact`.
 const archDir = (droot) => path.join(droot, DESK, 'archive');
 const startedAt = (t) => (t.history ?? []).find((h) => h.status === 'doing')?.at;
 const failsOf = (t) => (t.history ?? []).filter((h) => h.status === 'failed' || /^dispatched .*fails=/.test(h.note ?? '')).length;
@@ -570,7 +540,6 @@ const monthFiles = (droot) => {
 };
 const legacy = (droot) => parseLines(read(paths(droot).archive)).map((e) => ({ ...summary(e.item ?? e, e.at), status: e.status ?? e.item?.status }));
 
-/** The latest archived summary of an id, scanning newest month first; stops at the first hit. */
 export function findArchived(droot, id) {
   for (const f of monthFiles(droot)) {
     const hit = parseLines(read(path.join(archDir(droot), f))).filter((e) => e.id === id).at(-1);
@@ -579,7 +548,6 @@ export function findArchived(droot, id) {
   return legacy(droot).filter((e) => e.id === id).at(-1) ?? null;
 }
 
-/** The n most recent archived summaries, oldest first. */
 export function archived(droot, n = 20) {
   let out = [];
   for (const f of monthFiles(droot)) {
@@ -590,7 +558,6 @@ export function archived(droot, n = 20) {
   return out.slice(-n);
 }
 
-/** Bring an archived item back to the desk (a task returns to todo). */
 export function restore(droot, desk, id) {
   const want = String(id).toUpperCase();
   if (desk.items.some((i) => i.id === want && !(i.kind === 'task' && TASK_CLOSED.includes(i.status)))) throw new Error(`${want} is on the desk already${want.startsWith('Q-') ? ` (resume ${want})` : ''}`);
@@ -605,11 +572,6 @@ export function restore(droot, desk, id) {
   return it;
 }
 
-/**
- * Housekeeping at session start (also `desk compact`): fold the legacy archive.jsonl into monthly files, retire
- * unpinned memory unused for 30 sessions and one-off lessons unseen for 20 sessions (restore brings them back),
- * delete sent worker briefs older than 30 days whose task is closed. Returns what it did.
- */
 export function compact(droot, desk, state) {
   const moves = [];
   const p = paths(droot);
@@ -638,13 +600,11 @@ export function compact(droot, desk, state) {
       if (!open.has(f.replace(/\.sent\.md$/, '')) && Date.now() - fs.statSync(fp).mtimeMs > 30 * 864e5) fs.rmSync(fp), gone++;
     }
   } catch {
-    /* no specs */
   }
   if (gone) moves.push(`deleted ${gone} old sent brief(s)`);
   return moves;
 }
 
-// ---------------------------------------------------------------- metrics (computed here, shown by the dashboard)
 const median = (xs) => {
   if (!xs.length) return null;
   const a = [...xs].sort((x, y) => x - y);
@@ -705,7 +665,6 @@ export function metrics(droot, desk, { now = Date.now(), recent = null } = {}) {
   };
 }
 
-// ---------------------------------------------------------------- views
 const short = (s, n = 100) => {
   s = String(s ?? '');
   return s.length > n ? s.slice(0, n - 1) + '…' : s;
@@ -714,7 +673,6 @@ export const fmt = (t) => `${t.id} ${t.prio ?? ''} ${short(t.text)}`.replace(/\s
 const owner = (t) => (t.executor && t.executor !== 'lead' ? ` [${[t.role, t.agent && `${t.agent}${t.model ? ':' + t.model : ''}`].filter(Boolean).join(' · ') || t.executor}]` : '');
 const waitWhy = (t) => [t.on && `on ${t.on}`, t.until && `until ${t.until}`].filter(Boolean).join(', ');
 
-/** What the agent sees first. Short on purpose (~100 tokens on a normal desk). */
 export function surface(droot, desk, { state = null, moves = [], cmd = 'node .agentkit/desk.mjs' } = {}) {
   const m = findManifest(droot)?.data;
   const out = [];
@@ -752,7 +710,6 @@ export function surface(droot, desk, { state = null, moves = [], cmd = 'node .ag
   return out.join('\n');
 }
 
-/** DESK.md: the human view, regenerated on every change. */
 export function renderMd(droot, desk) {
   const m = findManifest(droot)?.data;
   const L = [];
@@ -778,7 +735,6 @@ export function renderMd(droot, desk) {
 }
 
 const onPath = (cmd) => (path.isAbsolute(cmd) ? fs.existsSync(cmd) : (process.env.PATH ?? '').split(path.delimiter).some((d) => d && ['', '.exe', '.cmd'].some((x) => fs.existsSync(path.join(d, cmd + x)))));
-/** Plan branches and their worktrees, straight from git (cheap; no Orca call). */
 function planGit(droot) {
   const out = {};
   const root = mainRoot(droot);
@@ -791,14 +747,12 @@ function planGit(droot) {
   return out;
 }
 
-/** Re-render DESK.md and desk.html from the current desk, for changes outside desk.json (worktrees, branches). */
 export function refreshViews(droot) {
   try {
     const desk = load(droot);
     writeAtomic(paths(droot).md, renderMd(droot, desk));
     renderHtml(droot, desk);
   } catch {
-    /* views are best effort */
   }
 }
 
@@ -823,7 +777,6 @@ export function renderHtml(droot, desk) {
   writeAtomic(paths(droot).html, tpl.slice(0, start) + payload + tpl.slice(end));
 }
 
-// ---------------------------------------------------------------- v1 → v2 (markdown zones → desk.json)
 const ITEM_RE = /^- (P[0-3]) ([A-Z]+-\d+) (.+?)\s*[·|]\s*\+(\d{4}-\d\d-\d\d)\s*[·|]\s*[×x](\d+)\s*[·|]\s*@(\d{4}-\d\d-\d\d)\s*$/;
 const strip = (t) => (t ?? '').replace(/<!--[\s\S]*?-->/g, '').replace(/^```[\s\S]*?^```/gm, '');
 export function parseV1Items(text) {
@@ -848,7 +801,6 @@ export function parseV1Items(text) {
   return { items, divider };
 }
 
-/** Convert a v1 desk in place. The old zone files move to archive/v1/ (nothing is lost). */
 export function migrateV1(droot) {
   const dir = path.join(droot, DESK);
   const z = (f) => read(path.join(dir, f));
@@ -872,12 +824,10 @@ export function migrateV1(droot) {
   }
   const leads = desk.items.filter((i) => i.status === 'doing');
   for (const extra of leads.slice(1)) extra.status = 'todo';
-  // Ids are never reused: continue after every id the v1 desk ever used (archive included).
   try {
     for (const f of fs.readdirSync(path.join(dir, 'archive')))
       for (const mm of (read(path.join(dir, 'archive', f)) ?? '').matchAll(/\b([QML])-(\d+)\b/g)) seq[mm[1]] = Math.max(seq[mm[1]], Number(mm[2]));
   } catch {
-    /* no archive */
   }
   desk.seq = { ...desk.seq, ...seq };
   const old = path.join(dir, 'archive', 'v1');

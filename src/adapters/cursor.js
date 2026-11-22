@@ -1,7 +1,6 @@
 import path from 'node:path';
 import { exists } from '../lib/util.js';
 
-/** Cursor reads AGENTS.md natively; the desk skill becomes an agent-requested rule. */
 export default {
   id: 'cursor',
   label: 'Cursor',

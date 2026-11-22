@@ -1,5 +1,3 @@
-// agent-work-kit — the `desk` command: `node .agentkit/desk.mjs <verb> …`. One line of output per change.
-// Kit-managed: do not edit.
 import path from 'node:path';
 import { projectDir, deskRoot, readState, journal } from './_lib.mjs';
 import * as S from './store.mjs';
@@ -185,7 +183,6 @@ export function run(argv, { cwd = process.cwd(), home = null, out = (s) => proce
       return print(ok(`${pos[0]} → ${it.id} ${it.kind}`));
     }
 
-    // ---------------------------------------------------------------- team
     case 'team': {
       const sub = pos.shift() ?? 'status';
       if (sub === 'allow') {
@@ -240,7 +237,6 @@ export function run(argv, { cwd = process.cwd(), home = null, out = (s) => proce
     case 'wt': {
       const team = T.loadTeam(droot);
       const sub = pos.shift() ?? 'status';
-      // Worktrees live in git, not desk.json: re-render the views right after any change.
       const done = (x) => (S.refreshViews(droot), x);
       if (sub === 'status') {
         const st = T.wtStatus(droot, team);
@@ -273,7 +269,6 @@ export function run(argv, { cwd = process.cwd(), home = null, out = (s) => proce
   }
 }
 
-// ---------------------------------------------------------------- proposals (review/P-*.md)
 import fs from 'node:fs';
 import { DESK, listReview, setStatus, today } from './_lib.mjs';
 function propose(droot, title, o) {

@@ -17,7 +17,6 @@ export async function confirm(question, def = true) {
   return a ? a.startsWith('y') : def;
 }
 
-/** Multi-select via comma-separated numbers or names. */
 export async function pick(question, options, preselected = []) {
   console.log(question);
   options.forEach((o, i) => console.log(`  ${i + 1}. ${o.id}${o.label ? ` — ${o.label}` : ''}`));

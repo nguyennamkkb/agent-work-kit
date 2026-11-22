@@ -15,7 +15,6 @@ const FAKE = path.join(HERE, 'fixtures', 'fake-orca.mjs');
 const G = ['-c', 'user.email=t@t', '-c', 'user.name=t'];
 const sh = (cwd, ...a) => execFileSync('git', [...G, ...a], { cwd, encoding: 'utf8' }).trim();
 
-/** A project with the kit, a fake Orca on hand, routing without catalogs (claude/codex), committed. */
 function project() {
   const base = fs.mkdtempSync(path.join(os.tmpdir(), 'team-'));
   const root = path.join(base, 'app');
@@ -80,7 +79,6 @@ test('dispatch: refuses without the user\'s yes, then routes, briefs and records
   assert.match(sent, /ROLE: engineer for task Q-1[\s\S]*You own only: API.swift[\s\S]*make build[\s\S]*worker Q-1 done --outcome/);
   const start = calls().find((c) => c[1] === 'worker-start');
   assert.ok(start.includes('--spec-file') && start.includes(`path:${root}`));
-  // file ownership and the worker ceiling
   desk('add', 'P1', 'engineer: also API', '--role', 'engineer', '--files', 'API.swift');
   assert.throws(() => desk('dispatch', 'Q-2'), /Q-1 \(doing\) also owns API.swift/);
   T.setTeam(root, 'maxWorkers', '1');
@@ -125,7 +123,6 @@ test('worker side: done checks the commit and the owned files, then the lead ver
   } finally {
     delete process.env.ORCA_TERMINAL_HANDLE;
   }
-  // a question and an escalation arrive through the lead's mail
   desk('add', 'tester: run unit tests', '--role', 'tester');
   desk('dispatch', 'Q-2');
   mail([
@@ -138,7 +135,6 @@ test('worker side: done checks the commit and the owned files, then the lead ver
   desk('reply', 'Q-2', 'Lumen-Dev');
   assert.equal(S.find(S.load(root), 'Q-2').question, undefined);
   assert.match(desk('mail'), /mail: empty — end your turn/);
-  // the lead verifies the reviewed task
   desk('done', 'Q-1', '--proof', 'read the diff; build green');
   assert.equal(S.find(S.load(root), 'Q-1').status, 'done');
 });
@@ -183,13 +179,11 @@ test('plan worktrees: open, worker surface inside it, park, reopen, gate, close 
   desk('dispatch', 'Q-1');
   const t = S.find(S.load(root), 'Q-1');
   assert.equal(t.worktree, `path:${wt}`, 'the plan worktree is picked by itself');
-  // inside the worktree the hooks and the desk command reach the main desk, and show the worker its task
   const out = [];
   run(['status'], { cwd: wt, out: (s) => out.push(s) });
   assert.match(out.join('\n'), /You are a worker: Q-1/);
   assert.match(desk('wt', 'status'), /\[ACTIVE\] plan\/login/);
   assert.throws(() => desk('wt', 'park', 'login'), /running tasks: Q-1/);
-  // the worker commits and reports from its worktree
   fs.writeFileSync(path.join(wt, 'Login.swift'), 'struct Login {}\n');
   sh(wt, 'add', '-A');
   sh(wt, 'commit', '-q', '-m', 'login: form');
@@ -250,7 +244,6 @@ test('a worker starting before the lead records it never counts as a lead sessio
   desk('team', 'allow', '--quote', 'ok');
   const wt = path.join(base, 'app-plan-login');
   const before = JSON.parse(fs.readFileSync(path.join(root, '.desk/.state.json'), 'utf8'));
-  // the worker's harness starts its session hook in the plan worktree; no task names it yet
   const r = spawnSync(process.execPath, [path.join(root, '.agentkit/hooks/session-start.mjs')], { input: JSON.stringify({ cwd: wt, source: 'startup' }), encoding: 'utf8', env: { ...process.env, CLAUDE_PROJECT_DIR: wt, AGENTKIT_ROOT: '' } });
   assert.match(r.stdout, /You are a worker in a plan worktree/);
   const r2 = spawnSync(process.execPath, [path.join(root, '.agentkit/hooks/session-start.mjs')], { input: JSON.stringify({ cwd: root, source: 'startup' }), encoding: 'utf8', env: { ...process.env, CLAUDE_PROJECT_DIR: root, ORCA_TERMINAL_HANDLE: 'structworker_abc' } });

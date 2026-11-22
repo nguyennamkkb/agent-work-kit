@@ -3,7 +3,6 @@ import { exists } from '../lib/util.js';
 import { hookGroups, HOOK_DIR } from './hooks.js';
 import { agentsSkill } from './agents-skill.js';
 
-// Codex runs hook commands from the session cwd; walk up to the project that holds .agentkit.json.
 const cmd = (script) =>
   `d="$PWD"; while [ "$d" != / ] && [ ! -f "$d/.agentkit.json" ]; do d=$(dirname "$d"); done; node "$d/${HOOK_DIR}/${script}"`;
 

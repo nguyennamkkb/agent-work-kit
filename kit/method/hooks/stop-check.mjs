@@ -1,7 +1,4 @@
 #!/usr/bin/env node
-// Stop: before the agent ends its turn, the desk must reflect the work. Reminds once per distinct problem.
-// A worker is reminded to report; the lead to sort the inbox, update its task, verify reports and answer questions.
-// Kit-managed: do not edit.
 import fs from 'node:fs';
 import path from 'node:path';
 import { readStdinJson, projectDir, deskRoot, git, findManifest, readState, writeState, DESK } from './_lib.mjs';
@@ -9,7 +6,6 @@ import { hasDesk, load, tasks, focus, paths, TASK_OPEN } from './store.mjs';
 import { workerContext } from './team.mjs';
 
 const SKIP = new Set(['.git', 'node_modules', DESK, '.agentkit', '.agents', '.pi', '.omp', '.opencode', '.claude', '.codex', '.cursor', 'dist', 'build', '.next', '.cache', 'vendor', 'Pods', 'DerivedData']);
-/** Files under root modified after `since` (bounded walk; used when the project is not a git repository). */
 function newerThan(root, since, kitFiles, max = 3000) {
   const out = [];
   let seen = 0;
@@ -29,7 +25,6 @@ function newerThan(root, since, kitFiles, max = 3000) {
         try {
           if (fs.statSync(path.join(dir, e.name)).mtimeMs > since) out.push(r);
         } catch {
-          /* gone */
         }
       }
     }
@@ -70,7 +65,7 @@ if (w) {
       .split('\n')
       .map((l) => l.slice(3).replace(/^"|"$/g, '').split(' -> ').pop())
       .filter((f) => f && !f.startsWith(DESK + '/') && !kitFiles.includes(f));
-  } else changed = newerThan(checkout, deskTime, kitFiles); // not a git repo (common outside coding): compare times
+  } else changed = newerThan(checkout, deskTime, kitFiles);
   {
     if (changed.length && Math.max(...changed.map((f) => mtime(path.join(checkout, f)))) > deskTime) {
       const cur = focus(desk);

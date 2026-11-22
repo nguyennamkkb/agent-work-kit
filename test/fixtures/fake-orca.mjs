@@ -1,6 +1,4 @@
 #!/usr/bin/env node
-// A stand-in for the `orca` CLI in tests. Logs every call; answers like Orca 1.4.268 (JSON {ok,result}).
-// State lives in $FAKE_ORCA_DIR: calls.jsonl, mail.json (messages for the next `check`), workers.json.
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';

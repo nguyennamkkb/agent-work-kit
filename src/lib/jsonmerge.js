@@ -1,11 +1,3 @@
-/**
- * Merge / un-merge kit entries into harness JSON config (settings.json, mcp.json).
- * A patch may contain:
- *   hooks:       { Event: [{ matcher, hooks: [{ type, command, timeout? }] }] }   (Claude Code format)
- *   permissions: { allow: [], ask: [], deny: [] }
- *   mcpServers:  { name: config }
- * The same patch object is stored in the manifest so it can be reverted exactly.
- */
 export function applyPatch(obj, patch) {
   const out = structuredClone(obj ?? {});
   if (patch.hooks) {

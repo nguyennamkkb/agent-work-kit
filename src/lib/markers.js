@@ -3,7 +3,6 @@ export const END = '<!-- agentkit:end -->';
 const NOTE =
   '<!-- Managed by agent-work-kit (`npx github:nguyennamkkb/agent-work-kit update`). Do not edit inside. Project notes go below the end marker; project rules go to .desk/rules.local.md. -->';
 
-/** Returns { before, inner, after } or null when the file has no kit block. */
 export function extractBlock(text) {
   if (text == null) return null;
   const s = text.indexOf(START);
@@ -11,7 +10,7 @@ export function extractBlock(text) {
   if (s < 0 || e < 0 || e < s) return null;
   let inner = text.slice(s + START.length, e);
   inner = inner.replace(/^\n/, '').replace(/\n$/, '');
-  inner = inner.replace(/^<!-- Managed by agent-work-kit[^\n]*-->\n?/, ''); // any version of the note
+  inner = inner.replace(/^<!-- Managed by agent-work-kit[^\n]*-->\n?/, '');
   return { before: text.slice(0, s), inner, after: text.slice(e + END.length) };
 }
 
@@ -19,7 +18,6 @@ export function renderBlock(inner) {
   return `${START}\n${NOTE}\n${inner.trim()}\n${END}`;
 }
 
-/** Insert or replace the kit block. New blocks go at the top of the file. */
 export function upsertBlock(text, inner) {
   const block = renderBlock(inner);
   const cur = extractBlock(text);

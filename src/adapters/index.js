@@ -18,7 +18,7 @@ export function collectOutputs(kit, ctx) {
   const notes = [];
   for (const a of [agentsMd, hooks, ...ctx.harnesses.map((h) => HARNESSES[h]).filter(Boolean)]) {
     const r = a.outputs(kit, ctx);
-    for (const o of r.outputs) byPath.set(o.path, o); // shared files (e.g. .agents/skills) are written once
+    for (const o of r.outputs) byPath.set(o.path, o);
     notes.push(...(r.notes ?? []));
   }
   return { outputs: [...byPath.values()], notes };

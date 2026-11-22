@@ -37,7 +37,6 @@ test('nothing changed → nothing written; bookkeeping writes desk.json only (no
   assert.equal(S.load(root).items[0].uses, 9);
   assert.equal(undoCount(root), undos, 'no undo snapshot for bookkeeping');
   assert.equal(fs.statSync(D(root, 'DESK.md')).mtimeMs, md, 'views not re-rendered for bookkeeping');
-  // the capture hook only bumps counters on a plain mention: bookkeeping
   const hook = spawnSync(process.execPath, [path.join(root, '.agentkit/hooks/capture.mjs')], { input: JSON.stringify({ cwd: root, prompt: 'about the login screen email field' }), encoding: 'utf8', env: { ...process.env, CLAUDE_PROJECT_DIR: root } });
   assert.equal(hook.status, 0);
   assert.equal(undoCount(root), undos);

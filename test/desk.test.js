@@ -20,7 +20,6 @@ function install({ git = true } = {}) {
   sync(makeCtx({ root, harnesses: ['claude'], profession: 'ios' }));
   return root;
 }
-/** Run the desk command in-process; returns its output lines. */
 const desk = (root, ...argv) => {
   const out = [];
   run(argv, { cwd: root, out: (s) => out.push(s) });
@@ -30,7 +29,6 @@ const hook = (root, script, input = {}) =>
   spawnSync(process.execPath, [path.join(root, '.agentkit/hooks', script)], { input: JSON.stringify({ cwd: root, ...input }), env: { ...process.env, CLAUDE_PROJECT_DIR: root }, encoding: 'utf8' });
 const ctxOf = (r) => (r.stdout.trim() ? JSON.parse(r.stdout).hookSpecificOutput.additionalContext : '');
 
-// ------------------------------------------------------------------ the board
 test('fresh install: desk.json, DESK.md, team.json with the profession defaults, git-ignored state', () => {
   const root = install();
   assert.deepEqual(S.load(root).items, []);
@@ -164,7 +162,6 @@ test('v1 desk (markdown zones) converts to desk.json on update; old files are ke
   assert.ok(fs.existsSync(D(root, 'archive/v1/now.md')) && !fs.existsSync(D(root, 'now.md')));
 });
 
-// ------------------------------------------------------------------ hooks
 test('capture: remember and corrections are filed by the hook; urgent lifts the mentioned task; normal prompts cost nothing', () => {
   const root = install();
   hook(root, 'session-start.mjs', { source: 'startup' });
@@ -246,7 +243,6 @@ test('DESK.md and desk.html are regenerated on every change', () => {
   assert.ok(html.includes('"Paywall"') && !html.includes('/*DESK*/'));
 });
 
-// ------------------------------------------------------------------ regressions from the OpenCode smoke test (2026-11-22)
 test('smoke: prompts from a real session — no false mentions, drop is recognized, resumed session ids count once', async () => {
   const root = install();
   const { detectSignals } = await import('../kit/method/hooks/_lib.mjs');

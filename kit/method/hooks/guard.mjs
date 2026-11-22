@@ -1,9 +1,4 @@
 #!/usr/bin/env node
-// Before a file write (any harness):
-//  1. the desk data and its generated views change only through `node .agentkit/desk.mjs`;
-//  2. plans, proposals, team.json and rules.local.md may be written directly (rules need an approved proposal);
-//  3. kit-managed files and the agentkit block stay untouched.
-// Exit 2 + stderr = blocked (Claude Code, Codex; the Pi/omp/OpenCode bridges translate it). Kit-managed: do not edit.
 import path from 'node:path';
 import { read, readStdinJson, projectDir, deskRoot, findManifest, DESK, LOCAL_RULES, lintLocalRules, normalizeWrites, toPosix } from './_lib.mjs';
 import { hasDesk, load, mutate, bumpMatches } from './store.mjs';
@@ -69,7 +64,6 @@ if (problems.length) {
   process.stderr.write(`[desk] Blocked:\n- ${problems.join('\n- ')}\n${kit ? KIT_HINT : ''}\n`);
   process.exit(2);
 }
-// Editing a file makes the desk items that reference it more important (once a day each).
 if (touchedFiles.length && hasDesk(droot)) {
   try {
     const probe = load(droot);
@@ -85,7 +79,6 @@ if (touchedFiles.length && hasDesk(droot)) {
         { bookkeeping: true },
       );
   } catch {
-    /* never block a write over bookkeeping */
   }
 }
 process.exit(0);

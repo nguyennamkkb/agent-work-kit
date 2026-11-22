@@ -1,7 +1,4 @@
 #!/usr/bin/env bash
-# Fresh team-test project: clean everything, copy the fixture, git init, install the kit, configure the team,
-# register with Orca. Usage: e2e/team/setup.sh <pi|omp|opencode|claude> [model]
-#   KIT=local   install from this checkout instead of GitHub
 set -euo pipefail
 H="${1:?usage: setup.sh <pi|omp|opencode|claude> [model]}"
 MODEL="${2:-opencode-go/deepseek-v4.1-flash}"
@@ -13,13 +10,14 @@ ORCA="${ORCA_CLI_COMMAND:-orca}"
 "$HERE/clean.sh"
 mkdir -p "$D"
 cp -r "$HERE/fixture/." "$D/"
+[ -n "${FIXTURE_OVERLAY:-}" ] && cp -r "$FIXTURE_OVERLAY/." "$D/"
 cd "$D"
 git init -q -b main
 git add -A
 git commit -qm "fixture: Linh Studio landing (brief, build check, tests)"
 
 if [ "${KIT:-github}" = local ]; then node "$REPO/bin/cli.js" init --universal "--$H" -y --dir "$D" | tail -1
-else (cd /tmp && npx -y github:nguyennamkkb/agent-work-kit init --universal "--$H" -y --dir "$D" | tail -1); fi
+else (cd /tmp && AGENTKIT_KEEP_CACHE=1 npx -y github:nguyennamkkb/agent-work-kit init --universal "--$H" -y --dir "$D" | tail -1); fi
 
 case "$H" in
   pi) CAND="pi:$MODEL@high" ;;
@@ -34,7 +32,6 @@ $C team set test.command "node --test" >/dev/null
 $C team set test.exclusive "test-runner" >/dev/null
 $C team set leadFiles "package.json,tests/page.test.mjs,scripts/check.mjs" >/dev/null
 $C team set maxWorkers 2 >/dev/null
-# TEAM_DENY: comma-separated model globs routing refuses (default *free*; set TEAM_DENY= to test a free model).
 ROUTING="$(node -e 'const [c,d]=process.argv.slice(1);const r={use:[c],fallback:[c]};console.log(JSON.stringify({deny:d?d.split(","):[],roles:{engineer:r,designer:r,tester:r,fixer:r,reviewer:r,writer:r}}))' "$CAND" "${TEAM_DENY-*free*}")"
 $C team set routing "$ROUTING" >/dev/null
 git add -A

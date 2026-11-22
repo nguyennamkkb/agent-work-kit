@@ -12,11 +12,6 @@ const walk = (d) => {
   }
 };
 
-/**
- * Remove this kit's entries from npm's download cache (`_cacache`): the index bucket files whose every entry
- * is ours, and the content blobs they point to. Buckets shared with any other key are left untouched.
- * (`npm cache clean <key>` leaves tombstones that make the next npx run report a corrupted tarball.)
- */
 export function cleanCacache(cacheDir) {
   const removed = [];
   const cacache = path.join(cacheDir, '_cacache');
@@ -46,12 +41,40 @@ export function cleanCacache(cacheDir) {
   return removed;
 }
 
-/**
- * When run through `npx`, the kit lives in `<npm cache>/_npx/<hash>/node_modules/agent-work-kit`.
- * Everything the project needs is copied into the project, so after the command the kit removes
- * its own npx folder and its own entries in npm's download cache. Nothing else in the cache is touched.
- * Returns the removed paths/keys (empty when not run from the npx cache). Never throws.
- */
+const markerDir = (npxDir) => path.join(npxDir, '.agentkit-in-use');
+const alive = (pid) => {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (e) {
+    return e.code === 'EPERM';
+  }
+};
+export function claim({ root = PKG_ROOT } = {}) {
+  const parts = path.resolve(root).split(path.sep);
+  const i = parts.lastIndexOf('_npx');
+  if (i < 1 || parts[i + 2] !== 'node_modules') return;
+  try {
+    const d = markerDir(parts.slice(0, i + 2).join(path.sep));
+    fs.mkdirSync(d, { recursive: true });
+    fs.writeFileSync(path.join(d, String(process.pid)), '');
+  } catch {
+  }
+}
+function inUse(npxDir) {
+  try {
+    return fs.readdirSync(markerDir(npxDir)).map(Number).filter((pid) => pid && alive(pid));
+  } catch {
+    return [];
+  }
+}
+function release(npxDir) {
+  try {
+    fs.rmSync(path.join(markerDir(npxDir), String(process.pid)), { force: true });
+  } catch {
+  }
+}
+
 export function selfClean({ root = PKG_ROOT, env = process.env } = {}) {
   const removed = [];
   if (env.AGENTKIT_KEEP_CACHE) return removed;
@@ -59,12 +82,14 @@ export function selfClean({ root = PKG_ROOT, env = process.env } = {}) {
   const i = parts.lastIndexOf('_npx');
   if (i < 1 || parts[i + 2] !== 'node_modules') return removed;
   const npxDir = parts.slice(0, i + 2).join(path.sep);
+  const others = inUse(npxDir).filter((pid) => pid !== process.pid);
+  release(npxDir);
+  if (others.length) return removed;
   try {
     fs.rmSync(npxDir, { recursive: true, force: true });
     removed.push(npxDir);
     removed.push(...cleanCacache(parts.slice(0, i).join(path.sep)));
   } catch {
-    /* best effort */
   }
   return removed;
 }

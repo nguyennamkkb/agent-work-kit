@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 import { main } from '../src/cli.js';
-import { selfClean } from '../src/lib/selfclean.js';
+import { selfClean, claim } from '../src/lib/selfclean.js';
+
+claim();
 
 const finish = (code) => {
-  selfClean(); // run via npx: remove the kit's own npx copy and download cache; the project keeps what it needs
+  selfClean();
   process.exit(code);
 };
 

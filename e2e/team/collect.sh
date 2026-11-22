@@ -1,6 +1,4 @@
 #!/usr/bin/env bash
-# Collect the evidence of a team test into one markdown file outside the project (the project is cleaned later).
-# Usage: e2e/team/collect.sh <label>
 set -uo pipefail
 L="${1:-run}"
 D="${DESK_TEAM_DIR:-$HOME/Documents/dev/desk-team-test}"

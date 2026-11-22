@@ -10,7 +10,6 @@ function archive(root, item) {
   fs.renameSync(item.file, dest);
 }
 
-/** Apply a decision. P: approve|reject. U: keep|drop. */
 export function decide(root, item, decision, note = '') {
   if (item.kind === 'P') {
     if (decision === 'approve') setStatus(item.file, 'approved', note);

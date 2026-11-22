@@ -44,7 +44,6 @@ function install(profession = 'ios', harnesses = ['claude'], { git = false } = {
 
 const cli = (root, ...args) => spawnSync(process.execPath, [CLI, ...args, '--dir', root], { encoding: 'utf8', env: { ...process.env, CI: '1' } });
 
-// ------------------------------------------------------------------ basics
 test('markers keep user text around the kit block', () => {
   const user = '# Mine\nkeep me\n';
   const b = upsertBlock(upsertBlock(user, 'v1'), 'v2');
@@ -66,7 +65,6 @@ test('short flags: --ios / --designer / --claude; one profession per desk', () =
   assert.throws(() => pickFlags(parseArgs(['init', '--ios', '--designer'], ['ios', 'designer'])), /one profession/);
 });
 
-// ------------------------------------------------------------------ profession packs
 for (const n of availableProfessions()) {
   test(`pack ${n.name}: every rule has an ID, priority, Why and Check; skill within budget`, () => {
     const kit = loadKit(n.name);
@@ -98,12 +96,11 @@ for (const h of ['claude', 'cursor', 'codex']) {
   });
 }
 
-// ------------------------------------------------------------------ install / remove
 test('install keeps existing CLAUDE.md and settings; remove restores them exactly', () => {
   const root = tmp();
   fs.mkdirSync(path.join(root, '.claude'));
   const claudeMd = '# Project\nUse pnpm.\n';
-  const settings = '{"permissions":{"allow":["Bash(pnpm test)"]}}'; // compact on purpose: must come back byte-for-byte
+  const settings = '{"permissions":{"allow":["Bash(pnpm test)"]}}';
   fs.writeFileSync(path.join(root, 'CLAUDE.md'), claudeMd);
   fs.writeFileSync(path.join(root, '.claude/settings.json'), settings);
   const ctx = makeCtx({ root, harnesses: ['claude'], profession: 'designer' });
@@ -144,7 +141,6 @@ test('update compares rules by ID; overridden rules are kept automatically and n
   assert.equal(listReviewPending(root), 0, 'nothing waits on the user');
   assert.equal(sync(ctx).rules.length, 0, 'second update: no changes, no duplicate notes');
 
-  // the user can still prefer the kit rule
   assert.equal(cli(root, 'review', '--drop', `U-IOS-001-v${ver}`).status, 0);
   assert.doesNotMatch(read(D(root, 'rules.local.md')), /IOS-001/);
   assert.match(read(D(root, 'rules.local.md')), /LOCAL-001/);
@@ -199,7 +195,7 @@ test('self-clean: removes only its own npx folder, and only when run from the np
   fs.mkdirSync(pkg, { recursive: true });
   fs.mkdirSync(other, { recursive: true });
   const env = {};
-  assert.deepEqual(selfClean({ root: path.join(tmp, 'clone'), env }), []); // a git clone is never touched
+  assert.deepEqual(selfClean({ root: path.join(tmp, 'clone'), env }), []);
   assert.deepEqual(selfClean({ root: pkg, env: { ...env, AGENTKIT_KEEP_CACHE: '1' } }), []);
   assert.ok(fs.existsSync(pkg));
   selfClean({ root: pkg, env });
@@ -229,7 +225,7 @@ test('remove never deletes the project directory or its parents, even when only 
   fs.mkdirSync(root);
   const ctx = makeCtx({ root, harnesses: ['pi', 'claude'], profession: 'universal' });
   sync(ctx);
-  fs.rmSync(path.join(root, '.desk'), { recursive: true, force: true }); // only kit files left
+  fs.rmSync(path.join(root, '.desk'), { recursive: true, force: true });
   uninstall(ctx);
   assert.ok(fs.existsSync(root), 'the project directory stays');
   assert.ok(fs.existsSync(parent), 'its parent stays');
@@ -244,4 +240,21 @@ test('skill frontmatter is valid YAML for strict parsers: the description is a q
     assert.ok(value.startsWith('"') && value.endsWith('"'), `${n.name}: description is quoted`);
     assert.match(JSON.parse(value), /Profession: /, 'JSON string quoting is valid YAML and round-trips');
   }
+});
+
+test('self-clean leaves the npx copy alone while another run of the kit is using it', () => {
+  const tmpd = fs.mkdtempSync(path.join(os.tmpdir(), 'ak-inuse-'));
+  const pkg = path.join(tmpd, '.npm', '_npx', 'abc123', 'node_modules', 'agent-work-kit');
+  fs.mkdirSync(path.join(tmpd, '.npm', '_npx', 'abc123', '.agentkit-in-use'), { recursive: true });
+  fs.mkdirSync(pkg, { recursive: true });
+  const other = spawnSync('sleep', ['5'], { detached: true, timeout: 1 });
+  fs.writeFileSync(path.join(tmpd, '.npm', '_npx', 'abc123', '.agentkit-in-use', String(process.ppid)), '');
+  selfClean({ root: pkg, env: {} });
+  assert.ok(fs.existsSync(pkg), 'kept: another live run holds it');
+  fs.rmSync(path.join(tmpd, '.npm', '_npx', 'abc123', '.agentkit-in-use', String(process.ppid)));
+  fs.writeFileSync(path.join(tmpd, '.npm', '_npx', 'abc123', '.agentkit-in-use', '999999'), '');
+  selfClean({ root: pkg, env: {} });
+  assert.ok(!fs.existsSync(path.join(tmpd, '.npm', '_npx', 'abc123')), 'removed once only dead runs remain');
+  void other;
+  fs.rmSync(tmpd, { recursive: true, force: true });
 });

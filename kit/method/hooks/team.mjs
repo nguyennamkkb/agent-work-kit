@@ -1,13 +1,9 @@
-// agent-work-kit — the team: Orca workers, plan worktrees, routing, leases and the merge gate, on the same desk.
-// Ported from orca-orchestrator (proven on Orca 1.4.246–1.4.268). Needs only git and, for workers, the `orca` CLI.
-// Kit-managed: do not edit.
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { read, readJson, writeAtomic, git, today, nowIso, DESK, mainRoot, readState, writeState } from './_lib.mjs';
 import { mutate, load, find, tasks, log, depsOpen, releaseLeases, isLead, TASK_OPEN, TASK_CLOSED, fmt, ready } from './store.mjs';
 
-// ---------------------------------------------------------------- profile (.desk/team.json)
 export const TEAM_DEFAULTS = {
   mainBranch: '',
   build: '',
@@ -50,7 +46,6 @@ function detectMain(root) {
   return git(root, ['branch', '--show-current']) || 'main';
 }
 
-// ---------------------------------------------------------------- running commands
 const which = (cmd) => {
   for (const dir of (process.env.PATH ?? '').split(path.delimiter)) {
     if (!dir) continue;
@@ -60,7 +55,6 @@ const which = (cmd) => {
 };
 export const orcaAvailable = () => (process.env.AGENTKIT_ORCA && path.isAbsolute(process.env.AGENTKIT_ORCA) ? fs.existsSync(process.env.AGENTKIT_ORCA) : which(process.env.AGENTKIT_ORCA || 'orca'));
 
-/** Run a CLI that answers JSON ({ok, result|error}); Orca prints keep-alive lines first. */
 export function runJson(cmd, args, { cwd } = {}) {
   const r = spawnSync(cmd, args, { cwd, encoding: 'utf8', timeout: 180000, shell: process.platform === 'win32' });
   const body = (r.stdout ?? '')
@@ -83,13 +77,6 @@ export function orca(args, opts) {
   return out;
 }
 
-// ---------------------------------------------------------------- routing
-/**
- * A candidate is "agent[:model][@effort]". Effort rules follow `orca orchestration worker-start --help` (1.4.268):
- * claude, codex, cursor, antigravity, grok, muse and pi take --effort with --model; omp takes the thinking level in
- * the model ("provider/model:level", also accepted by older Orca); opencode/zcode/others take no effort, and
- * opencode selects a model only inside an existing worktree.
- */
 export const AGENTS = {
   claude: { effort: 'flag', catalog: null, newChild: true },
   codex: { effort: 'flag', catalog: null, newChild: true },
@@ -117,7 +104,6 @@ export function parseCandidate(c) {
   return { agent: i < 0 ? head : head.slice(0, i), model: i < 0 ? null : head.slice(i + 1), effort, text: c };
 }
 
-/** Default roles: the agents installed on this machine, with their own default models. */
 export function defaultRoles(available = ['claude', 'omp', 'pi', 'opencode', 'codex'].filter(which)) {
   if (!available.length) return {};
   const [a, b = a] = available;
@@ -160,7 +146,6 @@ export function catalogs(droot, { refresh = false, agents = Object.keys(AGENTS) 
     try {
       writeAtomic(cachePath(droot), JSON.stringify(cache) + '\n');
     } catch {
-      /* read-only */
     }
   return out;
 }
@@ -209,7 +194,6 @@ export function routingErrors(routing, cats = {}) {
   return errs;
 }
 
-/** Pick the candidate for a role. Returns { kind: WORKER|REUSE|SUBAGENT|LEAD|ERROR, cand, args, skipped }. */
 export function route(droot, team, role, { fails = 0, prefer = null, exclude = [], terminal = null, worktree = 'current', level = null } = {}) {
   const routing = team.routing ?? {};
   const r = routing.roles?.[role];
@@ -253,7 +237,6 @@ export function launchArgs(c) {
   return out;
 }
 
-// ---------------------------------------------------------------- plans and worktrees
 export const plansDir = (droot, team) => path.join(droot, team.plansDir ?? '.desk/plans');
 export function planFile(droot, team, slug) {
   if (!slug) return null;
@@ -350,7 +333,7 @@ export function wtOpen(droot, team, slug, { base = null } = {}) {
   if (!r.ok) throw new Error(`orca worktree create: ${r.err}`);
   const p = planWorktrees(root)[slug];
   if (!p) throw new Error(`Orca created no worktree on ${branch}; check \`orca worktree list\``);
-  closeTerminals(p); // Orca opens an empty shell in every new worktree; workers get their own terminals
+  closeTerminals(p);
   const head = git(p, ['rev-parse', 'HEAD']);
   if (head !== want) throw new Error(`${p} is at ${head?.slice(0, 9)}, expected ${from} @ ${want.slice(0, 9)}`);
   return { path: p, reopened: reopen, head };
@@ -398,7 +381,6 @@ export function wtTidy(droot, team, { dryRun = false } = {}) {
   return acts;
 }
 
-// ---------------------------------------------------------------- merge gate
 export function gate(droot, team, slug) {
   const root = mainRoot(droot);
   const desk = load(droot);
@@ -415,8 +397,6 @@ export function gate(droot, team, slug) {
   const testers = ts.filter((t) => t.role === 'tester' && t.status === 'done');
   const tested = testers.find((t) => (t.sha && head?.startsWith(t.sha)) || (t.proof ?? '').includes(head?.slice(0, 7) ?? '#') || Date.parse(t.history?.at(-1)?.at ?? 0) >= headTime);
   add(!!tested || !team.test.command, tested ? `tester ${tested.id} green on the current HEAD` : team.test.command ? 'no green tester report on the current HEAD — dispatch a tester' : 'no test command in team.json (gate skipped)');
-  // Up to date with main — except for the lead's own bookkeeping: commits on main that only touch .desk/ do not
-  // change the code under test, so they must not force a rebase and a retest round.
   const contains = head && git(root, ['merge-base', '--is-ancestor', team.mainBranch, `plan/${slug}`]) != null;
   const aheadFiles = head && !contains ? (git(root, ['log', `plan/${slug}..${team.mainBranch}`, '--name-only', '--format=']) ?? '').split('\n').filter(Boolean) : [];
   const deskOnly = !contains && aheadFiles.length > 0 && aheadFiles.every((f) => f.startsWith(DESK + '/'));
@@ -428,7 +408,6 @@ export function gate(droot, team, slug) {
   return { checks, pass: checks.every((c) => c.ok), manual: [`read \`git diff ${team.mainBranch}...plan/${slug}\` against the plan; record every deviation`, 'merge only when the user asked for merges (git merge --no-ff plan/' + slug + ')', 'after merging: wt close ' + slug] };
 }
 
-// ---------------------------------------------------------------- file ownership
 export function conflicts(desk, team, t) {
   const out = [];
   const mine = new Set(t.files ?? []);
@@ -442,7 +421,6 @@ export function conflicts(desk, team, t) {
   return out;
 }
 
-// ---------------------------------------------------------------- specs and dispatch
 const ROLE_BRIEF = {
   engineer: 'You code and build; you never run the test command (the tester owns testing). Implement exactly what the task and plan say; Signatures and Decisions are fixed — if one is wrong, ask instead of changing it.',
   designer: 'You build UI and layout, build, and commit. Same limits as an engineer.',
@@ -485,7 +463,6 @@ export function allowTeam(droot, quote) {
   return s.teamAllowed;
 }
 
-/** route → orca worker-start → task doing, in one step (the only way to launch an Orca worker). */
 export function dispatch(droot, id, o = {}) {
   const team = loadTeam(droot);
   const root = mainRoot(droot);
@@ -551,7 +528,6 @@ export function dispatch(droot, id, o = {}) {
   return { ...out, route: picked.cand.text, dispatch: w.dispatchId, terminal: w.terminal ?? w.terminalHandle, sent };
 }
 
-// ---------------------------------------------------------------- coordinator: mail, reply, send, sync, fleet
 const payloadOf = (m) => {
   const p = m.payload ?? {};
   if (typeof p !== 'string') return p;
@@ -562,7 +538,6 @@ const payloadOf = (m) => {
   }
 };
 
-/** One non-blocking consuming check per Run; every message is applied to the desk. Never waits. */
 export function mail(droot, { runs = [] } = {}) {
   const desk = load(droot);
   const list = runs.length ? runs : [...new Set(tasks(desk).filter((t) => t.run && TASK_OPEN.includes(t.status)).map((t) => t.run))];
@@ -713,7 +688,6 @@ export function lease(droot, action, { resource, holder, ttlMin = 90, force = fa
   });
 }
 
-// ---------------------------------------------------------------- worker side
 function workerTask(droot, id) {
   const t = find(load(droot), id, 'task');
   if (t.executor !== 'orca' || !t.dispatch) throw new Error(`${t.id} is not a dispatched worker task`);
@@ -771,9 +745,8 @@ export function worker(droot, id, verb, o = {}) {
       if (!head) throw new Error('not in a git checkout');
       if (t.baseSha && head === t.baseSha) throw new Error(`no commit since dispatch (HEAD is still ${t.baseSha.slice(0, 9)}); commit your files first`);
       const owned = new Set(t.files ?? []);
-      // Judge the net change since dispatch (a file added by mistake and removed again is fine).
       const range = t.baseSha ? [t.baseSha, head] : [`${head}~1`, head];
-      const changed = (git(cwd, ['diff', '--name-only', ...range]) ?? '').split('\n').filter((f) => f && !f.startsWith(DESK + '/')); // .desk/ is shared bookkeeping
+      const changed = (git(cwd, ['diff', '--name-only', ...range]) ?? '').split('\n').filter((f) => f && !f.startsWith(DESK + '/'));
       const touched = new Set(changed);
       const outside = new Set(owned.size ? changed.filter((f) => !owned.has(f)) : []);
       const last = !owned.size || changed.some((f) => owned.has(f)) ? head : null;
@@ -804,12 +777,6 @@ export function worker(droot, id, verb, o = {}) {
   throw new Error('worker ID status|ask|escalate|inbox|lease|done');
 }
 
-/** The worker's own surface: inside a worker terminal or a plan worktree, show only its task. */
-/**
- * A worker, as opposed to the lead: running in a linked worktree of the desk's repository (a plan worktree), or in
- * an Orca worker terminal. Decided without the desk, because a worker starts before the lead has recorded its
- * dispatch; a worker must never count as a lead session (that would also clear the lead's `team allow`).
- */
 export const isWorkerEnv = (droot, checkout) => path.resolve(checkout) !== path.resolve(droot) || /^structworker_/.test(process.env.ORCA_TERMINAL_HANDLE ?? '');
 
 export function workerContext(droot, checkout) {

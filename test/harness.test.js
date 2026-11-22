@@ -37,7 +37,6 @@ const guard = (root, tool_name, tool_input) =>
 const load = async (file) => (await import(pathToFileURL(file).href + `?t=${Math.random()}`)).default;
 const patch = (body) => `*** Begin Patch\n${body}\n*** End Patch\n`;
 
-// ------------------------------------------------------------------ write normalization
 test('apply_patch parser: add, update, delete, move', () => {
   const ops = parseApplyPatch(patch('*** Add File: a.txt\n+hello\n*** Update File: b.txt\n*** Move to: c.txt\n@@\n-old\n+new\n*** Delete File: d.txt'));
   assert.deepEqual(ops.map((o) => [o.op, o.path, o.moveTo]), [['add', 'a.txt', null], ['update', 'b.txt', 'c.txt'], ['delete', 'd.txt', null]]);
@@ -72,7 +71,6 @@ test('guard blocks Codex apply_patch writes to the desk data and kit files', () 
   assert.equal(ap('*** Add File: src/App.swift\n+import SwiftUI').status, 0);
 });
 
-// ------------------------------------------------------------------ Codex
 test('codex: .codex/hooks.json runs the shared hooks from any subdirectory', () => {
   const root = install(['codex'], { git: true });
   const cfg = JSON.parse(read(path.join(root, '.codex/hooks.json')));
@@ -88,7 +86,6 @@ test('codex: .codex/hooks.json runs the shared hooks from any subdirectory', () 
   assert.ok(fs.existsSync(path.join(root, '.agents/skills/desk/SKILL.md')));
 });
 
-// ------------------------------------------------------------------ Pi / Oh My Pi
 function fakePi({ omp = false } = {}) {
   const handlers = {};
   const sent = [];
@@ -127,7 +124,7 @@ for (const host of ['pi', 'omp']) {
     assert.equal(await f.emit('tool_call', { toolName: 'write', input: { path: '.desk/plans/x.md', content: '# Plan' } }), undefined);
     assert.equal(await f.emit('tool_call', { toolName: 'bash', input: { command: 'ls' } }), undefined);
 
-    fs.writeFileSync(D(root, 'rules.local.md'), '# Project rules\n### bad heading\n'); // e.g. written by a tool the guard could not simulate
+    fs.writeFileSync(D(root, 'rules.local.md'), '# Project rules\n### bad heading\n');
     const res = await f.emit('tool_result', { toolName: 'edit', input: { path: '.desk/rules.local.md' }, content: [{ type: 'text', text: 'ok' }] });
     assert.match(res.content.at(-1).text, /Fix before continuing/);
     fs.writeFileSync(D(root, 'rules.local.md'), '# Project rules\n');
@@ -148,7 +145,6 @@ for (const host of ['pi', 'omp']) {
   });
 }
 
-// ------------------------------------------------------------------ OpenCode
 function fakeOpenCode(root, { putFails = false } = {}) {
   const hooks = { session: {}, tool: {} };
   const calls = { put: [], synthetic: [] };
@@ -198,7 +194,6 @@ test('opencode: falls back to carrying the desk in the prompt when instruction e
   assert.match(e.prompt.text, /^hello\n\n<agentkit-desk>\n\[desk\] iOS desk/);
 });
 
-// ------------------------------------------------------------------ install / remove all harnesses
 test('all harnesses together: shared files written once, everything removed cleanly', () => {
   const root = install(['claude', 'codex', 'opencode', 'pi', 'omp', 'cursor']);
   snapshot('all-files', tree(root));

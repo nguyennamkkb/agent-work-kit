@@ -58,7 +58,6 @@ export function parseArgs(argv, flagNames = []) {
   return opts;
 }
 
-/** Profession and harness flags: --ios, --designer, --claude, … */
 export function pickFlags(opts) {
   const profession = availableProfessions()
     .map((n) => n.name)
@@ -70,7 +69,6 @@ export function pickFlags(opts) {
 
 export async function main(argv) {
   if (argv[0] === 'desk') {
-    // Pass everything through untouched: the desk has its own flags (--now, --proof, …).
     const i = argv.indexOf('--dir');
     const dir = i > 0 ? argv[i + 1] : null;
     const rest = argv.slice(1).filter((_, j) => !(i > 0 && (j + 1 === i || j + 1 === i + 1)));

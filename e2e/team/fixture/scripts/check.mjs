@@ -1,4 +1,3 @@
-// Build check: the page exists and is structurally sound. Exit 1 with the reasons otherwise.
 import fs from 'node:fs';
 
 const problems = [];

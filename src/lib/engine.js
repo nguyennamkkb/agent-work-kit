@@ -17,7 +17,6 @@ export function makeCtx({ root = process.cwd(), harnesses = [], profession = nul
 export const manifestPath = (ctx) => path.join(ctx.root, MANIFEST);
 export function loadManifest(ctx) {
   const m = readJson(manifestPath(ctx));
-  // Manifests written before 0.2 call the profession "nghe".
   if (m && m.nghe && !m.profession) {
     m.profession = m.nghe;
     delete m.nghe;
@@ -26,7 +25,6 @@ export function loadManifest(ctx) {
 }
 const rel = (ctx, p) => toPosix(path.relative(ctx.root, p));
 
-/** Compare profession rules by ID. */
 export function diffRules(prev = {}, rules) {
   const next = Object.fromEntries(rules.map((r) => [r.id, { hash: sha(r.kind + '\n' + r.body), kind: r.kind, body: r.body }]));
   const added = Object.keys(next).filter((id) => !prev[id]);
@@ -59,17 +57,11 @@ Tell the agent "use the kit rule for ${id}" (it removes the project rule), or ru
 `;
   if (!dryRun) {
     writeText(p, text);
-    // Let the agent mention it once, in its own flow.
     if (Store.hasDesk(ctx.root)) Store.mutate(ctx.root, 'kit-update', (d) => Store.addInbox(d, `kit ${to} ${change} ${id}; project rule kept (archive/${base}.md) — tell the user once, in one line`));
   }
   return base + '.md';
 }
 
-/**
- * Bring the project in line with the kit for ctx.profession + ctx.harnesses.
- * Kit files are kit-owned (the guard hook blocks edits); if one was edited anyway, the user's version is kept
- * and the new one is written next to it as `.kit-new`. The desk itself is user data: seeded once, never overwritten.
- */
 export function sync(ctx, { force = false, dryRun = false } = {}) {
   const prev = loadManifest(ctx) ?? { files: {} };
   const kit = loadKit(ctx.profession);
@@ -105,7 +97,7 @@ export function sync(ctx, { force = false, dryRun = false } = {}) {
         log(cur == null ? 'create' : 'insert-block', r);
         files[r] = { kind: 'block', hash: h };
       } else if (blk.inner.trim() === out.content.trim()) {
-        const fresh = upsertBlock(cur, out.content); // refreshes the header note if it changed
+        const fresh = upsertBlock(cur, out.content);
         if (fresh !== cur) write(out.path, fresh);
         log(fresh !== cur ? 'update' : 'ok', r);
         files[r] = { kind: 'block', hash: h, ...keep };
@@ -126,13 +118,11 @@ export function sync(ctx, { force = false, dryRun = false } = {}) {
         write(out.path, text);
         log(cur == null ? 'create' : 'merge', r);
       } else log('ok', r);
-      // Remember the user's original text so `remove` can restore it byte-for-byte.
       const original = before ? before.original : cur;
       files[r] = { kind: 'json', patch: out.patch, ...(original != null ? { original } : {}) };
     }
   }
 
-  // Seed the desk (user data). A v1 desk (markdown zones) is converted first; its files move to archive/v1/.
   const v1 = exists(path.join(ctx.root, DESK, 'now.md')) && !exists(path.join(ctx.root, DESK, 'desk.json'));
   if (v1 && !dryRun) {
     Store.migrateV1(ctx.root);
@@ -144,7 +134,6 @@ export function sync(ctx, { force = false, dryRun = false } = {}) {
       write(p, t.content);
       log('seed', rel(ctx, p));
     } else if (t.rel === '.gitignore') {
-      // The desk's own ignore list grows with the kit; add missing lines, keep the user's.
       const cur = readText(p);
       const missing = t.content.split('\n').filter((l) => l.trim() && !l.startsWith('#') && !cur.split('\n').includes(l));
       if (missing.length) {
@@ -154,14 +143,12 @@ export function sync(ctx, { force = false, dryRun = false } = {}) {
     }
   }
 
-  // Drop kit files no longer produced.
   for (const [r, entry] of Object.entries(prev.files)) {
     if (files[r]) continue;
     const res = removeEntry(ctx, r, entry, { force, dryRun });
     log(res.removed ? 'remove' : 'keep', r, res.reason ?? '');
   }
 
-  // Per-rule diff of the profession pack.
   const sameProfession = prev.profession?.name === kit.profession.name;
   const d = diffRules(sameProfession ? prev.profession.rules : {}, kit.rules);
   const local = new Map(parseRules(readText(path.join(ctx.root, DESK, LOCAL_RULES))).rules.map((r) => [r.id, r]));
@@ -193,7 +180,7 @@ export function sync(ctx, { force = false, dryRun = false } = {}) {
   };
   if (!dryRun) {
     writeText(manifestPath(ctx), JSON.stringify(manifest, null, 2) + '\n');
-    if (!exists(path.join(ctx.root, DESK, 'DESK.md'))) Store.save(ctx.root, Store.load(ctx.root)); // first render of the views
+    if (!exists(path.join(ctx.root, DESK, 'DESK.md'))) Store.save(ctx.root, Store.load(ctx.root));
   }
   return { report, notes, manifest, rules, from: sameProfession ? prev.profession.version : null, orphans, kit };
 }
@@ -220,9 +207,8 @@ export function removeEntry(ctx, r, entry, { force = false, dryRun = false } = {
     let text = JSON.stringify(obj, null, 2) + '\n';
     if (entry.original != null) {
       try {
-        if (JSON.stringify(JSON.parse(entry.original)) === JSON.stringify(obj)) text = entry.original; // untouched since install
+        if (JSON.stringify(JSON.parse(entry.original)) === JSON.stringify(obj)) text = entry.original;
       } catch {
-        /* original was not valid JSON; keep the reverted object */
       }
     }
     if (!dryRun) Object.keys(obj).length ? writeText(p, text) : removeFile(p, ctx.root);

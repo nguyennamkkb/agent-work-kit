@@ -10,7 +10,6 @@ export const SKILL_PATHS = {
   opencode: AGENTS_SKILL,
 };
 
-/** Always-loaded instructions (AGENTS.md block). Short on purpose: the method lives in the desk skill. */
 export function renderAlwaysOn(kit, harnesses) {
   const paths = [...new Set(harnesses.map((h) => SKILL_PATHS[h]).filter(Boolean))];
   const enforced = harnesses.filter((h) => HARNESSES[h]?.enforcement !== 'none').map((h) => HARNESSES[h].label);

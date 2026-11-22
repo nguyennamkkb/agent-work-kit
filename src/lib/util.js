@@ -34,10 +34,6 @@ export function readJson(p, fallback = null) {
 
 export const exists = (p) => fs.existsSync(p);
 
-/**
- * Delete a file, then prune the directories it leaves empty — but only strictly inside `stopAt`
- * (the project root). The project directory itself and everything above it are never removed.
- */
 export function removeFile(p, stopAt) {
   if (!stopAt) throw new Error('removeFile needs the project root (stopAt)');
   try {
@@ -78,7 +74,6 @@ export function which(cmd) {
   }
 }
 
-/** Minimal frontmatter parser: `key: value` lines between --- fences. */
 export function parseFrontmatter(text) {
   const m = /^---\n([\s\S]*?)\n---\n?/.exec(text);
   if (!m) return { meta: {}, body: text };

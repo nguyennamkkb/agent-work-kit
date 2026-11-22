@@ -1,7 +1,6 @@
 import path from 'node:path';
 import { renderAlwaysOn } from './shared.js';
 
-/** AGENTS.md — shared, always-loaded entry point (read by Codex, Cursor, and Claude via @AGENTS.md). */
 export default {
   id: 'agents-md',
   outputs: (kit, ctx) => ({

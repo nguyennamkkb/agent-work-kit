@@ -1,8 +1,6 @@
-
-// ---- Pi / Oh My Pi extension: maps host events onto the shared desk hooks.
 const TYPE = 'agentkit-desk';
 export default function agentkitDesk(pi) {
-  const isOmp = Boolean(pi && pi.runtime && pi.extension); // omp passes its runtime alongside the Pi-style API
+  const isOmp = Boolean(pi && pi.runtime && pi.extension);
   let root = akRoot(process.cwd());
   let surface = '';
   let reminded = false;
