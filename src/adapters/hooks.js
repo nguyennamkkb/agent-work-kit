@@ -5,7 +5,11 @@ export const HOOK_DIR = '.agentkit/hooks';
 export default {
   id: 'hooks',
   outputs: (kit, ctx) => ({
-    outputs: kit.hookFiles.map((f) => ({ path: path.join(ctx.root, HOOK_DIR, f.rel), kind: 'file', content: f.content })),
+    outputs: [
+      ...kit.hookFiles.map((f) => ({ path: path.join(ctx.root, HOOK_DIR, f.rel), kind: 'file', content: f.content })),
+      { path: path.join(ctx.root, '.agentkit', 'desk.mjs'), kind: 'file', content: kit.cli },
+      ...kit.docs.map((f) => ({ path: path.join(ctx.root, '.agentkit', 'docs', f.rel), kind: 'file', content: f.content })),
+    ],
   }),
 };
 

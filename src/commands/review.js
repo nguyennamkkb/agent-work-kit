@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { listReview, setStatus, removeRuleSection, read, DESK, ZONES } from '../../kit/method/hooks/_lib.mjs';
+import { listReview, setStatus, removeRuleSection, read, DESK, LOCAL_RULES } from '../../kit/method/hooks/_lib.mjs';
 import { interactive, ask } from '../lib/prompt.js';
 import { color } from '../lib/util.js';
 import { rootOf } from './common.js';
@@ -19,7 +19,7 @@ export function decide(root, item, decision, note = '') {
   } else {
     const ruleId = /^U-([A-Z]+-\d+)/.exec(item.id)?.[1];
     if (decision === 'drop') {
-      const p = path.join(root, DESK, ZONES.local);
+      const p = path.join(root, DESK, LOCAL_RULES);
       fs.writeFileSync(p, removeRuleSection(read(p) ?? '', ruleId));
       setStatus(item.file, 'applied', note || `dropped project rule ${ruleId}; the kit rule applies`);
     } else if (decision === 'keep') setStatus(item.file, 'applied', note || `kept project rule ${ruleId}`);

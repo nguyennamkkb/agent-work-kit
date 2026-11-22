@@ -1,12 +1,9 @@
-import { renderSurface, lintDesk, readState } from '../../kit/method/hooks/_lib.mjs';
-import { color } from '../lib/util.js';
+import { run } from '../../kit/method/hooks/cli.mjs';
 import { rootOf } from './common.js';
 
-/** Show the desk surface (read-only; does not count a session). */
+/** `agent-work-kit desk [verb …]` — the same command the agent runs (`node .agentkit/desk.mjs`). */
 export default async function desk(opts) {
   const root = rootOf(opts);
-  console.log(renderSurface(root, { session: readState(root) }));
-  const errors = lintDesk(root);
-  console.log(errors.length ? color.red(`\n${errors.length} desk problem(s)`) : color.green('\nDesk is in order.'));
-  return errors.length ? 1 : 0;
+  run(opts._ ?? [], { cwd: root });
+  return 0;
 }

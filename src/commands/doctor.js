@@ -5,7 +5,9 @@ import { loadKit } from '../lib/bundle.js';
 import { extractBlock } from '../lib/markers.js';
 import { isPatchApplied } from '../lib/jsonmerge.js';
 import { readText, exists, sha, which, color } from '../lib/util.js';
-import { lintDesk, git, parseRules, listReview, DESK, ZONES } from '../../kit/method/hooks/_lib.mjs';
+import { git, parseRules, listReview, readJson, DESK, LOCAL_RULES } from '../../kit/method/hooks/_lib.mjs';
+import * as Store from '../../kit/method/hooks/store.mjs';
+import { loadTeam, routingErrors, orcaAvailable } from '../../kit/method/hooks/team.mjs';
 import { rootOf } from './common.js';
 
 export default async function doctor(opts) {
@@ -23,9 +25,9 @@ export default async function doctor(opts) {
     err(`no ${MANIFEST} — run \`npx github:nguyennamkkb/agent-work-kit init --<profession>\``);
     return 1;
   }
-  ok(`${m.nghe.title} desk · rules ${m.nghe.version} · kit ${m.version} · harness: ${m.harnesses.join(', ') || 'AGENTS.md only'}`);
-  const kit = loadKit(m.nghe.name);
-  if (m.version !== kitVersion() || m.nghe.version !== kit.nghe.version) warn(`update available (kit ${kitVersion()}, ${m.nghe.name} rules ${kit.nghe.version}) — \`npx github:nguyennamkkb/agent-work-kit update\``);
+  ok(`${m.profession.title} desk · rules ${m.profession.version} · kit ${m.version} · harness: ${m.harnesses.join(', ') || 'AGENTS.md only'}`);
+  const kit = loadKit(m.profession.name);
+  if (m.version !== kitVersion() || m.profession.version !== kit.profession.version) warn(`update available (kit ${kitVersion()}, ${m.profession.name} rules ${kit.profession.version}) — \`npx github:nguyennamkkb/agent-work-kit update\``);
 
   let edited = 0;
   for (const [rel, e] of Object.entries(m.files)) {
@@ -49,13 +51,25 @@ export default async function doctor(opts) {
   }
   edited ? warn(`${edited} kit file(s) edited by hand`) : ok(`${Object.keys(m.files).length} kit files intact`);
 
-  const deskErrors = lintDesk(root);
-  deskErrors.length ? deskErrors.forEach((e) => err(`desk: ${e}`)) : ok('desk zones valid');
-  const local = parseRules(readText(path.join(root, DESK, ZONES.local))).rules;
-  const known = new Set(Object.keys(m.nghe.rules));
+  const raw = readJson(path.join(root, DESK, 'desk.json'));
+  if (!raw) exists(path.join(root, DESK, 'now.md')) ? warn('desk v1 (markdown zones) — `update` converts it to desk.json') : err('.desk/desk.json missing or not valid JSON — run `update`');
+  else {
+    const d = Store.load(root);
+    const doing = Store.tasks(d, 'doing').filter(Store.isLead);
+    const ids = d.items.map((i) => i.id);
+    const dup = ids.filter((x, i) => ids.indexOf(x) !== i);
+    if (doing.length > 1) warn(`${doing.length} lead tasks in progress (${doing.map((t) => t.id).join(', ')}); one at a time`);
+    if (dup.length) err(`desk: duplicate ids ${[...new Set(dup)].join(', ')}`);
+    ok(`desk: ${Store.tasks(d, ...Store.TASK_OPEN).length} open task(s), ${Store.memories(d).length} memory, ${Store.lessons(d).length} lesson(s)`);
+  }
+  const team = loadTeam(root);
+  const rerr = routingErrors(team.routing);
+  rerr.length ? rerr.forEach((e) => err(`team.json routing: ${e}`)) : ok(`team: ${orcaAvailable() ? 'Orca found — workers available' : 'Orca not installed — solo + subagents'} · roles ${Object.keys(team.routing.roles).join(', ') || 'none (no agent CLI found)'}`);
+  const local = parseRules(readText(path.join(root, DESK, LOCAL_RULES))).rules;
+  const known = new Set(Object.keys(m.profession.rules));
   const orphans = local.filter((r) => r.kind !== 'P0' && r.kind !== 'P1' && r.kind !== 'P2' && r.kind !== 'P3' && !known.has(r.id));
   if (orphans.length) warn(`rules.local.md overrides unknown rules: ${orphans.map((r) => r.id).join(', ')}`);
-  ok(`rules: ${known.size} ${m.nghe.name} + ${local.length} project`);
+  ok(`rules: ${known.size} ${m.profession.name} + ${local.length} project`);
   const pending = listReview(root).filter((r) => !r.archived && r.status === 'pending');
   if (pending.length) warn(`${pending.length} item(s) waiting for your decision — \`npx github:nguyennamkkb/agent-work-kit review\``);
   git(root, ['rev-parse', '--is-inside-work-tree']) === 'true' ? ok('git repository') : warn('not a git repository — commits are the desk checkpoints');

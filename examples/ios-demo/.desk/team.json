@@ -1,0 +1,19 @@
+{
+  "build": "",
+  "test": {
+    "command": "",
+    "exclusive": "simulator",
+    "scope": ""
+  },
+  "leadFiles": [
+    "project.pbxproj",
+    ".xcstrings",
+    "Info.plist"
+  ],
+  "maxWorkers": 3,
+  "maxPlanWorktrees": 3,
+  "notes": [
+    "Every test run installs the app on the booted simulator: two concurrent test runs kill each other's host, so only the tester holding the simulator lease runs tests. Builds are safe in parallel.",
+    "Environment recovery: pgrep -fl 'xcodebuild test'; xcrun simctl shutdown <udid> && xcrun simctl boot <udid>."
+  ]
+}

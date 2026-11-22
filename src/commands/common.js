@@ -7,5 +7,5 @@ export function requireInstall(opts) {
   const root = rootOf(opts);
   const m = loadManifest(makeCtx({ root }));
   if (!m) throw new Error(`No ${MANIFEST} in ${root}. Run \`npx github:nguyennamkkb/agent-work-kit init --<profession>\` first.`);
-  return { ctx: makeCtx({ root, harnesses: m.harnesses, nghe: m.nghe.name }), manifest: m };
+  return { ctx: makeCtx({ root, harnesses: m.harnesses, profession: m.profession.name }), manifest: m };
 }

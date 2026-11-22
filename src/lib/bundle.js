@@ -3,22 +3,25 @@ import path from 'node:path';
 import { KIT_DIR, readText, readJson, listFiles, parseFrontmatter, exists } from './util.js';
 import { parseRules } from '../../kit/method/hooks/_lib.mjs';
 
-const NGHE_DIR = path.join(KIT_DIR, 'nghe');
+/** Starter team profile (.desk/team.json); the profession pack fills in what it knows. */
+const TEAM_SEED = { build: '', test: { command: '', exclusive: '', scope: '' }, leadFiles: [], maxWorkers: 3, maxPlanWorktrees: 3, notes: [] };
+
+const PROFESSION_DIR = path.join(KIT_DIR, 'profession');
 const METHOD_DIR = path.join(KIT_DIR, 'method');
 
-export function availableNghe() {
+export function availableProfessions() {
   return fs
-    .readdirSync(NGHE_DIR)
-    .filter((n) => exists(path.join(NGHE_DIR, n, 'nghe.json')))
-    .map((n) => readJson(path.join(NGHE_DIR, n, 'nghe.json')));
+    .readdirSync(PROFESSION_DIR)
+    .filter((n) => exists(path.join(PROFESSION_DIR, n, 'profession.json')))
+    .map((n) => readJson(path.join(PROFESSION_DIR, n, 'profession.json')));
 }
 
 /** Load the desk method + one profession pack into a neutral kit description. */
-export function loadKit(nghe) {
-  const names = availableNghe().map((n) => n.name);
-  if (!names.includes(nghe)) throw new Error(`Unknown profession "${nghe}". Available: ${names.map((n) => '--' + n).join(', ')}`);
-  const dir = path.join(NGHE_DIR, nghe);
-  const meta = readJson(path.join(dir, 'nghe.json'));
+export function loadKit(profession) {
+  const names = availableProfessions().map((n) => n.name);
+  if (!names.includes(profession)) throw new Error(`Unknown profession "${profession}". Available: ${names.map((n) => '--' + n).join(', ')}`);
+  const dir = path.join(PROFESSION_DIR, profession);
+  const meta = readJson(path.join(dir, 'profession.json'));
   const rulesText = readText(path.join(dir, 'rules.md')).trim();
   const methodRaw = readText(path.join(METHOD_DIR, 'SKILL.md'));
   const { meta: skillMeta, body: methodBody } = parseFrontmatter(methodRaw);
@@ -31,15 +34,20 @@ export function loadKit(nghe) {
   const skillBody = `${methodBody.trim()}\n\n---\n\n${rulesText}\n`;
   const description = `${skillMeta.description} Profession: ${meta.title}.`;
   return {
-    nghe: meta,
+    profession: meta,
     skill: { name: skillMeta.name, description, body: skillBody, raw: `---\nname: ${skillMeta.name}\ndescription: ${description}\n---\n${skillBody}` },
     rules: parseRules(rulesText).rules,
     hooks: readJson(path.join(hooksDir, 'hooks.json'), []),
     hookFiles: listFiles(hooksDir)
-      .filter((f) => f.endsWith('.mjs'))
+      .filter((f) => /\.(mjs|html)$/.test(f))
       .map((f) => ({ rel: f, content: readText(path.join(hooksDir, f)) })),
+    cli: readText(path.join(METHOD_DIR, 'desk.mjs')),
+    docs: listFiles(path.join(METHOD_DIR, 'docs')).map((f) => ({ rel: f, content: readText(path.join(METHOD_DIR, 'docs', f)) })),
     // npm drops .gitignore files from packages, so the template ships as `gitignore`.
-    templates: listFiles(deskDir).map((f) => ({ rel: f === 'gitignore' ? '.gitignore' : f, content: readText(path.join(deskDir, f)) })),
+    templates: [
+      ...listFiles(deskDir).map((f) => ({ rel: f === 'gitignore' ? '.gitignore' : f, content: readText(path.join(deskDir, f)) })),
+      { rel: 'team.json', content: JSON.stringify({ ...TEAM_SEED, ...(meta.team ?? {}), test: { ...TEAM_SEED.test, ...(meta.team?.test ?? {}) } }, null, 2) + '\n' },
+    ],
     permissions: { ...(kitCfg.permissions ?? {}), ...(meta.permissions ?? {}) },
     checks: [...(kitCfg.checks ?? []), ...(meta.checks ?? [])],
     mcp: meta.mcp ?? {},

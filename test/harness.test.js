@@ -7,6 +7,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import { makeCtx, sync, uninstall } from '../src/lib/engine.js';
 import { parseApplyPatch, normalizeWrites } from '../kit/method/hooks/_lib.mjs';
+import * as Store from '../kit/method/hooks/store.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const SNAP = path.join(HERE, '__snapshots__');
@@ -14,7 +15,6 @@ const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'desk-h-'));
 const read = (p) => fs.readFileSync(p, 'utf8');
 const D = (root, f) => path.join(root, '.desk', f);
 const today = new Date().toISOString().slice(0, 10);
-const item = (prio, id, text, sub = []) => [`- ${prio} ${id} ${text} · +${today} · ×1 · @${today}`, ...sub.map((s) => `  - ${s}`)].join('\n');
 const tree = (dir) => execFileSync('find', ['.', '-type', 'f'], { cwd: dir, encoding: 'utf8' }).split('\n').filter(Boolean).sort().join('\n') + '\n';
 
 function snapshot(name, value) {
@@ -29,14 +29,13 @@ function snapshot(name, value) {
 function install(harnesses, { git = false } = {}) {
   const root = tmp();
   if (git) execFileSync('git', ['init', '-q'], { cwd: root });
-  sync(makeCtx({ root, harnesses, nghe: 'ios' }));
+  sync(makeCtx({ root, harnesses, profession: 'ios' }));
   return root;
 }
 const guard = (root, tool_name, tool_input) =>
   spawnSync(process.execPath, [path.join(root, '.agentkit/hooks/guard.mjs')], { input: JSON.stringify({ cwd: root, tool_name, tool_input }), encoding: 'utf8' });
 const load = async (file) => (await import(pathToFileURL(file).href + `?t=${Math.random()}`)).default;
 const patch = (body) => `*** Begin Patch\n${body}\n*** End Patch\n`;
-const plus = (...items) => items.join('\n').split('\n').map((l) => '+' + l).join('\n');
 
 // ------------------------------------------------------------------ write normalization
 test('apply_patch parser: add, update, delete, move', () => {
@@ -58,16 +57,18 @@ test('normalizeWrites understands Claude, Codex, Pi and OpenCode tool shapes', (
   assert.deepEqual(normalizeWrites(root, 'bash', { command: 'ls' }), []);
 });
 
-test('guard blocks Codex apply_patch writes that break the desk or touch kit files', () => {
+test('guard blocks Codex apply_patch writes to the desk data and kit files', () => {
   const root = install(['codex']);
   const ap = (body) => guard(root, 'apply_patch', { command: patch(body) });
-  assert.equal(ap('*** Add File: .desk/todo.md\n+x').status, 2);
-  assert.equal(ap(`*** Update File: .desk/now.md\n@@\n # Now\n${plus(item('P1', 'Q-1', 'a', ['done: x']), item('P1', 'Q-2', 'b', ['done: y']))}`).status, 2);
-  assert.equal(ap(`*** Update File: .desk/now.md\n@@\n # Now\n${plus(item('P1', 'Q-1', 'Login', ['done: tests']))}`).status, 0);
+  const r1 = ap('*** Add File: .desk/todo.md\n+x');
+  assert.equal(r1.status, 2);
+  assert.match(r1.stderr, /desk command/);
+  assert.equal(ap('*** Update File: .desk/desk.json\n@@\n-  "goal": [],\n+  "goal": ["x"],').status, 2, 'desk.json only through the command');
+  assert.equal(ap('*** Add File: .desk/plans/20261122-login.md\n+# Plan').status, 0, 'plans are documents');
+  assert.equal(ap('*** Update File: .desk/rules.local.md\n@@\n # Project rules\n+### LOCAL-001 · P1\n+Always X.').status, 2, 'new rule needs an approved proposal');
   const r = ap('*** Update File: AGENTS.md\n@@\n-# Desk — iOS (agent-work-kit)\n+# Hacked');
   assert.equal(r.status, 2);
   assert.match(r.stderr, /agentkit block/);
-  assert.equal(ap('*** Delete File: .desk/queue.md').status, 2);
   assert.equal(ap('*** Add File: src/App.swift\n+import SwiftUI').status, 0);
 });
 
@@ -82,7 +83,8 @@ test('codex: .codex/hooks.json runs the shared hooks from any subdirectory', () 
   const run = (event, input) => spawnSync('sh', ['-c', cfg.hooks[event][0].hooks[0].command], { cwd: sub, input: JSON.stringify(input), encoding: 'utf8' });
   assert.match(run('SessionStart', { source: 'startup', cwd: sub }).stdout, /\[desk\] iOS desk · session 1/);
   assert.equal(run('PreToolUse', { cwd: sub, tool_name: 'apply_patch', tool_input: { command: patch('*** Add File: ../../.desk/x.md\n+x') } }).status, 2);
-  assert.match(JSON.parse(run('UserPromptSubmit', { cwd: sub, prompt: 'sai rồi, làm lại' }).stdout).hookSpecificOutput.additionalContext, /correction/);
+  assert.match(JSON.parse(run('UserPromptSubmit', { cwd: sub, prompt: 'sai rồi, làm lại' }).stdout).hookSpecificOutput.additionalContext, /Correction → L-1/);
+  assert.equal(Store.lessons(Store.load(root)).length, 1, 'the correction became a lesson by itself');
   assert.ok(fs.existsSync(path.join(root, '.agents/skills/desk/SKILL.md')));
 });
 
@@ -115,32 +117,32 @@ for (const host of ['pi', 'omp']) {
     assert.match(first.message.content, /\[desk\] iOS desk · session 1/);
     assert.match(first.message.content, /Urgent/);
     assert.equal(first.message.display, false);
-    fs.writeFileSync(D(root, 'now.md'), `# Now\n${item('P1', 'Q-1', 'Logout button', ['done: tests'])}\n`);
+    Store.mutate(root, 'add', (d) => Store.addTask(d, { text: 'Logout button', done: 'tests', now: true }));
     assert.equal(await f.emit('before_agent_start', { messageType: 'user', prompt: 'thêm nút đăng xuất' }), undefined, 'quiet when nothing to say');
 
     const bad = await f.emit('tool_call', { toolName: 'write', input: { path: '.desk/todo.md', content: 'x' } });
     assert.equal(bad.block, true);
-    assert.match(bad.reason, /not a desk zone/);
-    assert.equal(await f.emit('tool_call', { toolName: 'edit', input: { path: '.desk/now.md', edits: [{ oldText: 'Logout button', newText: 'Logout button in Settings' }] } }), undefined);
-    assert.equal((await f.emit('tool_call', { toolName: 'edit', input: { path: '.desk/now.md', edits: [{ oldText: '# Now', newText: `# Now\n${item('P1', 'Q-2', 'Second', ['done: x'])}` }] } })).block, true, 'second task in now.md');
+    assert.match(bad.reason, /desk command/);
+    assert.equal((await f.emit('tool_call', { toolName: 'edit', input: { path: '.desk/desk.json', edits: [{ oldText: 'Logout', newText: 'Login' }] } })).block, true);
+    assert.equal(await f.emit('tool_call', { toolName: 'write', input: { path: '.desk/plans/x.md', content: '# Plan' } }), undefined);
     assert.equal(await f.emit('tool_call', { toolName: 'bash', input: { command: 'ls' } }), undefined);
 
-    fs.writeFileSync(D(root, 'queue.md'), '# Queue\n- not an item\n'); // e.g. written by a tool the guard could not simulate
-    const res = await f.emit('tool_result', { toolName: 'edit', input: { path: '.desk/queue.md' }, content: [{ type: 'text', text: 'ok' }] });
-    assert.match(res.content.at(-1).text, /desk is now invalid/);
-    fs.writeFileSync(D(root, 'queue.md'), '# Queue\n');
+    fs.writeFileSync(D(root, 'rules.local.md'), '# Project rules\n### bad heading\n'); // e.g. written by a tool the guard could not simulate
+    const res = await f.emit('tool_result', { toolName: 'edit', input: { path: '.desk/rules.local.md' }, content: [{ type: 'text', text: 'ok' }] });
+    assert.match(res.content.at(-1).text, /Fix before continuing/);
+    fs.writeFileSync(D(root, 'rules.local.md'), '# Project rules\n');
 
-    fs.appendFileSync(D(root, 'inbox.md'), 'dark mode later\n');
+    Store.mutate(root, 'inbox', (d) => Store.addInbox(d, 'dark mode later'));
     if (host === 'pi') {
       const s1 = await f.emit('agent_before_settle', { entries: [] });
       assert.equal(s1.continue, true);
-      assert.match(s1.entries[0].content, /inbox\.md has 1/);
+      assert.match(s1.entries[0].content, /inbox holds 1/);
       assert.equal(await f.emit('agent_before_settle', { entries: [] }), undefined, 'reminds once per run');
     } else {
       await f.emit('agent_end', {});
       await f.emit('agent_end', {});
       assert.equal(f.sent.length, 1);
-      assert.match(f.sent[0][0].content, /inbox\.md has 1/);
+      assert.match(f.sent[0][0].content, /inbox holds 1/);
       assert.deepEqual(f.sent[0][1], { deliverAs: 'followUp', triggerTurn: true });
     }
   });
@@ -173,17 +175,17 @@ test('opencode: plugin injects the desk as an instruction entry, blocks bad writ
   const e = { sessionID: 's1', prompt: { text: 'sai rồi, không phải file đó' } };
   await f.hooks.session.prompt(e);
   assert.equal(f.calls.put[0].key, 'agentkit-desk');
-  assert.match(f.calls.put[0].value, /iOS desk · session 1[\s\S]*correction/);
+  assert.match(f.calls.put[0].value, /iOS desk · session 1[\s\S]*Correction/);
   assert.equal(e.prompt.text, 'sai rồi, không phải file đó', 'user text untouched');
 
-  assert.throws(() => f.hooks.tool['execute.before']({ tool: 'write', input: { filePath: path.join(root, '.desk/todo.md'), content: 'x' } }), /not a desk zone/);
+  assert.throws(() => f.hooks.tool['execute.before']({ tool: 'write', input: { filePath: path.join(root, '.desk/todo.md'), content: 'x' } }), /desk command/);
   assert.equal(f.hooks.tool['execute.before']({ tool: 'edit', input: { filePath: path.join(root, 'App.swift'), oldString: 'a', newString: 'b' } }), undefined);
 
-  fs.appendFileSync(D(root, 'inbox.md'), 'later\n');
+  Store.mutate(root, 'inbox', (d) => Store.addInbox(d, 'later'));
   await f.hooks.session['experimental.idle']({ sessionID: 's1' });
   await f.hooks.session['experimental.idle']({ sessionID: 's1' });
   assert.equal(f.calls.synthetic.length, 1);
-  assert.match(f.calls.synthetic[0].text, /inbox\.md has 1/);
+  assert.match(f.calls.synthetic[0].text, /inbox holds 1/);
 });
 
 test('opencode: falls back to carrying the desk in the prompt when instruction entries are unavailable', async () => {
@@ -202,7 +204,7 @@ test('all harnesses together: shared files written once, everything removed clea
   snapshot('all-files', tree(root));
   snapshot('all-AGENTS.md', read(path.join(root, 'AGENTS.md')));
   for (const h of ['pi', 'omp']) snapshot(`${h}-extension.js`, read(path.join(root, `.${h}/extensions/agentkit-desk.js`)));
-  assert.match(read(path.join(root, 'AGENTS.md')), /enforced by the kit on Claude Code, Codex, OpenCode, Pi, Oh My Pi/);
+  assert.match(read(path.join(root, 'AGENTS.md')), /the kit enforces them on Claude Code, Codex, OpenCode, Pi, Oh My Pi/);
   uninstall(makeCtx({ root }));
   const left = tree(root).split('\n').filter((f) => f && !f.startsWith('./.desk/'));
   assert.deepEqual(left, []);

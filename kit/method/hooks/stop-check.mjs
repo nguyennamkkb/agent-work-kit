@@ -1,57 +1,58 @@
 #!/usr/bin/env node
-// Stop: before the agent ends, the inbox must be empty and now.md must reflect code changes. Reminds once.
+// Stop: before the agent ends its turn, the desk must reflect the work. Reminds once per distinct problem.
+// A worker is reminded to report; the lead to sort the inbox, update its task, verify reports and answer questions.
 // Kit-managed: do not edit.
 import fs from 'node:fs';
 import path from 'node:path';
-import { read, readStdinJson, projectDir, git, findManifest, readState, sessionJournal, DESK, ZONES } from './_lib.mjs';
+import { readStdinJson, projectDir, deskRoot, git, findManifest, readState, writeState, DESK } from './_lib.mjs';
+import { hasDesk, load, tasks, focus, paths, TASK_OPEN } from './store.mjs';
+import { workerContext } from './team.mjs';
 
 const input = await readStdinJson();
 if (input.stop_hook_active) process.exit(0);
-const root = projectDir(input);
-const desk = path.join(root, DESK);
-if (!fs.existsSync(desk)) process.exit(0);
+const checkout = projectDir(input);
+const droot = deskRoot(checkout);
+if (!hasDesk(droot)) process.exit(0);
+const C = 'node .agentkit/desk.mjs';
+const desk = load(droot);
 const problems = [];
 
-const inbox = (read(path.join(desk, ZONES.inbox)) ?? '')
-  .replace(/<!--[\s\S]*?-->/g, '')
-  .split('\n')
-  .filter((l) => l.trim() && !l.startsWith('#'));
-if (inbox.length) problems.push(`inbox.md has ${inbox.length} unsorted line(s) — move each into queue, memory or notebook, or drop it`);
-
-// Kit-installed files are not "work"; ignore them (and untracked dirs that only hold them).
-const kitFiles = Object.keys(findManifest(root)?.data?.files ?? {}).concat('.agentkit.json');
-const isKit = (f) => kitFiles.some((k) => k === f || (f.endsWith('/') && k.startsWith(f)));
-const status = git(root, ['status', '--porcelain', '--untracked-files=all']);
-if (status) {
-  const changed = status
-    .split('\n')
-    .map((l) => l.slice(3).replace(/^"|"$/g, '').split(' -> ').pop())
-    .filter((f) => f && !f.startsWith(DESK + '/') && !isKit(f));
-  const mtime = (f) => {
-    try {
-      return fs.statSync(path.join(root, f)).mtimeMs;
-    } catch {
-      return 0;
+const w = workerContext(droot, checkout);
+if (w) {
+  const id = /You are a worker: (Q-\d+)/.exec(w)?.[1];
+  problems.push(`you are worker ${id}: report before stopping — \`worker ${id} done --outcome … --summary "…"\` when finished, or \`ask\`/\`escalate\` if you are waiting (then end your turn)`);
+} else {
+  const inbox = tasks(desk, 'inbox');
+  if (inbox.length) problems.push(`the inbox holds ${inbox.length} item(s) (${inbox.map((t) => t.id).join(', ')}) — \`${C} file ID task|memory|lesson\` or \`drop ID --why\``);
+  const kitFiles = Object.keys(findManifest(checkout)?.data?.files ?? {}).concat('.agentkit.json');
+  const status = git(checkout, ['status', '--porcelain', '--untracked-files=all']);
+  if (status) {
+    const changed = status
+      .split('\n')
+      .map((l) => l.slice(3).replace(/^"|"$/g, '').split(' -> ').pop())
+      .filter((f) => f && !f.startsWith(DESK + '/') && !kitFiles.includes(f));
+    const mtime = (f) => {
+      try {
+        return fs.statSync(f).mtimeMs;
+      } catch {
+        return 0;
+      }
+    };
+    if (changed.length && Math.max(...changed.map((f) => mtime(path.join(checkout, f)))) > mtime(paths(droot).json)) {
+      const cur = focus(desk);
+      problems.push(cur ? `${changed.length} file(s) changed after the desk — \`${C} done ${cur.id} --proof "…"\` if its check passes, else \`${C} next "…"\`` : `${changed.length} file(s) changed but no task is in progress — record the work: \`${C} add P1 "…" --done "…" --now\`, then done/next`);
     }
-  };
-  const deskTime = Math.max(...['now.md', 'queue.md', 'memory.md', 'notebook.md'].map((f) => mtime(path.join(DESK, f))));
-  if (changed.length && Math.max(...changed.map(mtime)) > deskTime)
-    problems.push(`${changed.length} file(s) changed but the desk was not updated after them — update now.md (status, next step) and the zones you learned something for`);
+  }
+  const review = tasks(desk, 'review');
+  if (review.length) problems.push(`worker report(s) to verify: ${review.map((t) => t.id).join(', ')} (git log -1 in its worktree, diff vs plan, then \`${C} done ID --sha … --proof …\`)`);
+  const asks = tasks(desk, ...TASK_OPEN).filter((t) => t.question);
+  if (asks.length) problems.push(`worker question(s) waiting: ${asks.map((t) => t.id).join(', ')} — \`${C} reply ID "…"\``);
 }
-
-// Corrections the user made this session must end up as lessons.
-const fixes = sessionJournal(root, readState(root).session).filter((e) => e.signals?.includes('correction'));
-if (fixes.length) {
-  const nb = path.join(desk, ZONES.notebook);
-  const last = Date.parse(fixes[fixes.length - 1].t);
-  if (!fs.existsSync(nb) || fs.statSync(nb).mtimeMs < last)
-    problems.push(`the user corrected you ${fixes.length}× this session (e.g. "${fixes[fixes.length - 1].text.slice(0, 80)}") — record the lesson(s) in notebook.md`);
-}
-
 if (!problems.length) process.exit(0);
-process.stdout.write(
-  JSON.stringify({
-    decision: 'block',
-    reason: `[desk] Before stopping: ${problems.join('; ')}. Then commit if checks pass. If this turn was only a question, just stop.`,
-  }) + '\n',
-);
+const state = readState(droot);
+const key = problems.join('|').replace(/\d+ file\(s\)/g, 'N files');
+state.reminded ??= {};
+if (state.reminded.stop === key) process.exit(0);
+state.reminded.stop = key;
+writeState(droot, state);
+process.stdout.write(JSON.stringify({ decision: 'block', reason: `[desk] Before stopping: ${problems.join('; ')}. If this turn was only a question, just stop.` }) + '\n');

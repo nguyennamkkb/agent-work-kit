@@ -14,7 +14,7 @@ export default {
         path: path.join(ctx.root, 'CLAUDE.md'),
         kind: 'block',
         content:
-          '@AGENTS.md\n\nClaude Code: the desk skill is `.claude/skills/desk/SKILL.md`. Hooks show and sort the desk at session start, read each user message for corrections/urgency/approvals, validate every write to `.desk/`, and check the inbox before you stop. When a hook blocks you, fix what it says; never work around it.',
+          '@AGENTS.md\n\nClaude Code: the desk skill is `.claude/skills/desk/SKILL.md`. Hooks show the desk at session start, file what the user says (remember → memory, corrections → lessons, urgent → P0), keep `.desk/` writable only through `node .agentkit/desk.mjs`, and check the desk before you stop. Subagents are tier T1 (`add … --executor subagent`). When a hook blocks you, do what it says; never work around it.',
       },
       { path: path.join(dir, 'skills', 'desk', 'SKILL.md'), kind: 'file', content: kit.skill.raw },
     ];

@@ -4,17 +4,26 @@ import { extractBlock, upsertBlock, removeBlock } from './markers.js';
 import { applyPatch, revertPatch } from './jsonmerge.js';
 import { loadKit } from './bundle.js';
 import { collectOutputs } from '../adapters/index.js';
-import { parseRules, DESK, ZONES } from '../../kit/method/hooks/_lib.mjs';
+import { parseRules, DESK, LOCAL_RULES } from '../../kit/method/hooks/_lib.mjs';
+import * as Store from '../../kit/method/hooks/store.mjs';
 
 export const MANIFEST = '.agentkit.json';
 export const kitVersion = () => readJson(path.join(PKG_ROOT, 'package.json')).version;
 
-export function makeCtx({ root = process.cwd(), harnesses = [], nghe = null } = {}) {
+export function makeCtx({ root = process.cwd(), harnesses = [], profession = null } = {}) {
   root = path.resolve(root);
-  return { root, harnesses, nghe };
+  return { root, harnesses, profession };
 }
 export const manifestPath = (ctx) => path.join(ctx.root, MANIFEST);
-export const loadManifest = (ctx) => readJson(manifestPath(ctx));
+export function loadManifest(ctx) {
+  const m = readJson(manifestPath(ctx));
+  // Manifests written before 0.2 call the profession "nghe".
+  if (m && m.nghe && !m.profession) {
+    m.profession = m.nghe;
+    delete m.nghe;
+  }
+  return m;
+}
 const rel = (ctx, p) => toPosix(path.relative(ctx.root, p));
 
 /** Compare profession rules by ID. */
@@ -51,20 +60,19 @@ Tell the agent "use the kit rule for ${id}" (it removes the project rule), or ru
   if (!dryRun) {
     writeText(p, text);
     // Let the agent mention it once, in its own flow.
-    const inbox = path.join(ctx.root, DESK, ZONES.inbox);
-    writeText(inbox, (readText(inbox) ?? '# Inbox\n') + `- kit ${to} ${change} ${id}; project rule kept (archive/${base}.md) — tell the user once, in one line\n`);
+    if (Store.hasDesk(ctx.root)) Store.mutate(ctx.root, 'kit-update', (d) => Store.addInbox(d, `kit ${to} ${change} ${id}; project rule kept (archive/${base}.md) — tell the user once, in one line`));
   }
   return base + '.md';
 }
 
 /**
- * Bring the project in line with the kit for ctx.nghe + ctx.harnesses.
+ * Bring the project in line with the kit for ctx.profession + ctx.harnesses.
  * Kit files are kit-owned (the guard hook blocks edits); if one was edited anyway, the user's version is kept
  * and the new one is written next to it as `.kit-new`. The desk itself is user data: seeded once, never overwritten.
  */
 export function sync(ctx, { force = false, dryRun = false } = {}) {
   const prev = loadManifest(ctx) ?? { files: {} };
-  const kit = loadKit(ctx.nghe);
+  const kit = loadKit(ctx.profession);
   const { outputs, notes } = collectOutputs(kit, ctx);
   const files = {};
   const report = [];
@@ -124,12 +132,25 @@ export function sync(ctx, { force = false, dryRun = false } = {}) {
     }
   }
 
-  // Seed the desk (user data).
+  // Seed the desk (user data). A v1 desk (markdown zones) is converted first; its files move to archive/v1/.
+  const v1 = exists(path.join(ctx.root, DESK, 'now.md')) && !exists(path.join(ctx.root, DESK, 'desk.json'));
+  if (v1 && !dryRun) {
+    Store.migrateV1(ctx.root);
+    log('migrate', `${DESK}/`, 'desk v1 → v2 (desk.json); old zone files kept in .desk/archive/v1/');
+  }
   for (const t of kit.templates) {
     const p = path.join(ctx.root, DESK, t.rel);
     if (!exists(p)) {
       write(p, t.content);
       log('seed', rel(ctx, p));
+    } else if (t.rel === '.gitignore') {
+      // The desk's own ignore list grows with the kit; add missing lines, keep the user's.
+      const cur = readText(p);
+      const missing = t.content.split('\n').filter((l) => l.trim() && !l.startsWith('#') && !cur.split('\n').includes(l));
+      if (missing.length) {
+        write(p, cur.replace(/\n*$/, '\n') + missing.join('\n') + '\n');
+        log('update', rel(ctx, p), `ignore ${missing.join(' ')}`);
+      }
     }
   }
 
@@ -141,11 +162,11 @@ export function sync(ctx, { force = false, dryRun = false } = {}) {
   }
 
   // Per-rule diff of the profession pack.
-  const sameNghe = prev.nghe?.name === kit.nghe.name;
-  const d = diffRules(sameNghe ? prev.nghe.rules : {}, kit.rules);
-  const local = new Map(parseRules(readText(path.join(ctx.root, DESK, ZONES.local))).rules.map((r) => [r.id, r]));
+  const sameProfession = prev.profession?.name === kit.profession.name;
+  const d = diffRules(sameProfession ? prev.profession.rules : {}, kit.rules);
+  const local = new Map(parseRules(readText(path.join(ctx.root, DESK, LOCAL_RULES))).rules.map((r) => [r.id, r]));
   const rules = [];
-  if (sameNghe) {
+  if (sameProfession) {
     for (const id of d.added) rules.push({ id, change: 'added', action: 'applied' });
     for (const [list, change] of [
       [d.changed, 'changed'],
@@ -154,7 +175,7 @@ export function sync(ctx, { force = false, dryRun = false } = {}) {
       for (const id of list) {
         const lr = local.get(id);
         if (lr && (lr.kind === 'override' || lr.kind === 'off')) {
-          const item = writeUpdateItem(ctx, { id, change, prev: prev.nghe.rules[id], next: d.next[id], local: lr, from: prev.nghe.version, to: kit.nghe.version, dryRun });
+          const item = writeUpdateItem(ctx, { id, change, prev: prev.profession.rules[id], next: d.next[id], local: lr, from: prev.profession.version, to: kit.profession.version, dryRun });
           rules.push({ id, change, action: item ? `project rule ${lr.kind} kept → .desk/archive/${item}` : 'project rule kept (noted before)' });
         } else rules.push({ id, change, action: change === 'removed' ? 'removed' : 'applied' });
       }
@@ -164,14 +185,17 @@ export function sync(ctx, { force = false, dryRun = false } = {}) {
   const manifest = {
     kit: 'agent-work-kit',
     version: kitVersion(),
-    nghe: { name: kit.nghe.name, title: kit.nghe.title, version: kit.nghe.version, rules: d.next },
+    profession: { name: kit.profession.name, title: kit.profession.title, version: kit.profession.version, rules: d.next },
     harnesses: ctx.harnesses,
     installedAt: prev.installedAt ?? new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     files,
   };
-  if (!dryRun) writeText(manifestPath(ctx), JSON.stringify(manifest, null, 2) + '\n');
-  return { report, notes, manifest, rules, from: sameNghe ? prev.nghe.version : null, orphans, kit };
+  if (!dryRun) {
+    writeText(manifestPath(ctx), JSON.stringify(manifest, null, 2) + '\n');
+    if (!exists(path.join(ctx.root, DESK, 'DESK.md'))) Store.save(ctx.root, Store.load(ctx.root)); // first render of the views
+  }
+  return { report, notes, manifest, rules, from: sameProfession ? prev.profession.version : null, orphans, kit };
 }
 
 export function removeEntry(ctx, r, entry, { force = false, dryRun = false } = {}) {

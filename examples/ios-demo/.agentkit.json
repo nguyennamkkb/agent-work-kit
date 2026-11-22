@@ -1,10 +1,10 @@
 {
   "kit": "agent-work-kit",
-  "version": "0.1.0",
-  "nghe": {
+  "version": "0.2.0",
+  "profession": {
     "name": "ios",
     "title": "iOS",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "rules": {
       "IOS-001": {
         "hash": "74071d1aeda52632",
@@ -47,39 +47,63 @@
     "opencode"
   ],
   "installedAt": "2026-11-22T04:38:04.665Z",
-  "updatedAt": "2026-11-22T04:38:04.665Z",
+  "updatedAt": "2026-11-22T05:31:31.386Z",
   "files": {
     "AGENTS.md": {
       "kind": "block",
-      "hash": "feb7e219c8ed6780"
+      "hash": "b3b6766db95390ee"
     },
     ".agentkit/hooks/_lib.mjs": {
       "kind": "file",
-      "hash": "390171dde94c5ea6"
+      "hash": "8a6c72a983cd1a9c"
     },
     ".agentkit/hooks/capture.mjs": {
       "kind": "file",
-      "hash": "925b6bc1339a5f89"
+      "hash": "9e620859a5bf877d"
+    },
+    ".agentkit/hooks/cli.mjs": {
+      "kind": "file",
+      "hash": "4ebeb490c6591d08"
+    },
+    ".agentkit/hooks/dashboard.html": {
+      "kind": "file",
+      "hash": "8b5636b0ccf4a242"
     },
     ".agentkit/hooks/desk-check.mjs": {
       "kind": "file",
-      "hash": "71ebbf130eb6f728"
+      "hash": "964d158e14572b19"
     },
     ".agentkit/hooks/guard.mjs": {
       "kind": "file",
-      "hash": "5aba6022de973548"
+      "hash": "ecf161d3c1068e8c"
     },
     ".agentkit/hooks/session-start.mjs": {
       "kind": "file",
-      "hash": "8fd97bd9cc9e5ef4"
+      "hash": "5a3a4fe13d3274b4"
     },
     ".agentkit/hooks/stop-check.mjs": {
       "kind": "file",
-      "hash": "9b848eff23c4723b"
+      "hash": "304c22054cc61e45"
+    },
+    ".agentkit/hooks/store.mjs": {
+      "kind": "file",
+      "hash": "6fc3fba7d039f3bf"
+    },
+    ".agentkit/hooks/team.mjs": {
+      "kind": "file",
+      "hash": "8ace31922bfe1c0d"
+    },
+    ".agentkit/desk.mjs": {
+      "kind": "file",
+      "hash": "44bd807620c38baa"
+    },
+    ".agentkit/docs/team.md": {
+      "kind": "file",
+      "hash": "44d3f7a3e2d59052"
     },
     ".agents/skills/desk/SKILL.md": {
       "kind": "file",
-      "hash": "631c443106957e4a"
+      "hash": "db5d4f12c5a0f59c"
     },
     ".opencode/plugins/agentkit-desk/index.js": {
       "kind": "file",

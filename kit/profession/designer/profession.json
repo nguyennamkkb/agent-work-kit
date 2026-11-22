@@ -1,0 +1,25 @@
+{
+  "name": "designer",
+  "title": "Designer",
+  "version": "1.1.0",
+  "description": "Product / UI design in Figma with a design system",
+  "mcp": {
+    "figma": {
+      "type": "http",
+      "url": "https://mcp.figma.com/mcp"
+    }
+  },
+  "checks": [],
+  "team": {
+    "build": "",
+    "test": {
+      "command": "",
+      "exclusive": "figma-file",
+      "scope": ""
+    },
+    "leadFiles": [],
+    "notes": [
+      "One agent edits a Figma file at a time (lease figma-file); others review or prepare specs."
+    ]
+  }
+}

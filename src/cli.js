@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { readJson, PKG_ROOT } from './lib/util.js';
-import { availableNghe } from './lib/bundle.js';
+import { availableProfessions } from './lib/bundle.js';
 import { HARNESSES } from './adapters/index.js';
 import init from './commands/init.js';
 import switchCmd from './commands/switch.js';
@@ -16,14 +16,14 @@ const COMMANDS = { init, switch: switchCmd, update, doctor, remove, review, desk
 const help = () => `agent-work-kit — one desk per project, one profession per desk
 
 Usage
-  npx github:nguyennamkkb/agent-work-kit init --<profession>     ${availableNghe().map((n) => '--' + n.name).join(', ')}
+  npx github:nguyennamkkb/agent-work-kit init --<profession>     ${availableProfessions().map((n) => '--' + n.name).join(', ')}
   npx github:nguyennamkkb/agent-work-kit <command> [options]
 
 Commands
   init      Set up the desk and the profession rules (asks if no profession given)
-  switch    Change the profession (--designer); the desk zones stay
+  switch    Change the profession (--designer); the desk stays
   update    Update kit + profession rules, compared rule by rule
-  desk      Show the desk surface and check its zones
+  desk      The desk command (same as node .agentkit/desk.mjs): desk status | add | done | … | help
   review    Decide proposals and kit updates in .desk/review/
   doctor    Check the installation
   remove    Uninstall (keeps .desk/ unless --purge-desk)
@@ -60,16 +60,25 @@ export function parseArgs(argv, flagNames = []) {
 
 /** Profession and harness flags: --ios, --designer, --claude, … */
 export function pickFlags(opts) {
-  const nghe = availableNghe()
+  const profession = availableProfessions()
     .map((n) => n.name)
     .filter((n) => opts[n] === true);
-  if (nghe.length > 1) throw new Error(`A desk serves one profession; got ${nghe.map((n) => '--' + n).join(' ')}.`);
+  if (profession.length > 1) throw new Error(`A desk serves one profession; got ${profession.map((n) => '--' + n).join(' ')}.`);
   const harnesses = Object.keys(HARNESSES).filter((h) => opts[h] === true);
-  return { nghe: nghe[0] ?? null, harnesses };
+  return { profession: profession[0] ?? null, harnesses };
 }
 
 export async function main(argv) {
-  const opts = parseArgs(argv, [...availableNghe().map((n) => n.name), ...Object.keys(HARNESSES)]);
+  if (argv[0] === 'desk') {
+    // Pass everything through untouched: the desk has its own flags (--now, --proof, …).
+    const i = argv.indexOf('--dir');
+    const dir = i > 0 ? argv[i + 1] : null;
+    const rest = argv.slice(1).filter((_, j) => !(i > 0 && (j + 1 === i || j + 1 === i + 1)));
+    const { run } = await import('../kit/method/hooks/cli.mjs');
+    run(rest, { cwd: dir ? path.resolve(dir) : process.cwd() });
+    return 0;
+  }
+  const opts = parseArgs(argv, [...availableProfessions().map((n) => n.name), ...Object.keys(HARNESSES)]);
   if (opts.version) {
     console.log(readJson(path.join(PKG_ROOT, 'package.json')).version);
     return 0;

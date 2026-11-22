@@ -1,0 +1,19 @@
+{
+  "version": 2,
+  "seq": {
+    "Q": 2,
+    "M": 0,
+    "L": 0,
+    "P": 0
+  },
+  "goal": [
+    "Keep the local agent tooling clean so the demo desk works without stray integrations; verify changes with the tool's own status command."
+  ],
+  "items": [],
+  "leases": {},
+  "migrated": {
+    "from": 1,
+    "at": "2026-11-22T05:29:46Z"
+  },
+  "updated": "2026-11-22T05:30:03Z"
+}

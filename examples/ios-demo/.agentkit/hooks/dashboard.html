@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Desk</title>
+<style>
+:root{--bg:#f7f7f5;--card:#fff;--text:#1d1d1f;--text-2:#55555a;--text-3:#8a8a90;--line:#e4e4e0;--accent:#2f6fdb;--ok:#1f8a4c;--warn:#b7791f;--bad:#c0392b;--wait:#7a5cc7}
+@media (prefers-color-scheme:dark){:root{--bg:#141416;--card:#1d1d20;--text:#ececef;--text-2:#b0b0b8;--text-3:#7d7d86;--line:#2c2c31;--accent:#6b9cff;--ok:#4cc27e;--warn:#e0a84a;--bad:#ff6b5e;--wait:#a78bfa}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:1180px;margin:0 auto;padding:20px 16px 48px}
+header{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 16px;margin-bottom:14px}h1{font-size:20px;margin:0}.muted{color:var(--text-3);font-size:12px}
+.goal{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin-bottom:14px}.goal li{margin:2px 0}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:14px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px}.kpi b{display:block;font-size:22px}.kpi span{color:var(--text-2);font-size:12px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px}
+section{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px;min-width:0}
+h2{font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:var(--text-2);margin:0 0 8px;display:flex;gap:8px;align-items:center}h2 .n{color:var(--text-3)}
+ul{list-style:none;margin:0;padding:0}li.t{padding:7px 0;border-top:1px solid var(--line);cursor:pointer}li.t:first-child{border-top:0}
+.id{font-weight:600;font-variant-numeric:tabular-nums}.p{font-size:11px;padding:1px 6px;border-radius:9px;border:1px solid var(--line);margin:0 4px;color:var(--text-2)}
+.p.P0{border-color:var(--bad);color:var(--bad)}.p.P1{border-color:var(--accent);color:var(--accent)}
+.sub{color:var(--text-2);font-size:12px;margin-top:2px;overflow-wrap:anywhere}.who{color:var(--wait);font-size:12px}
+.attn{border-color:var(--warn)}.empty{color:var(--text-3);font-style:italic}
+dialog{border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--text);max-width:min(720px,94vw);width:100%}
+dialog pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px;color:var(--text-2)}button{font:inherit}
+.bar{height:6px;background:var(--line);border-radius:3px;overflow:hidden;margin-top:4px}.bar i{display:block;height:100%;background:var(--ok)}
+</style>
+</head>
+<body>
+<main>
+  <header><h1 id="title">Desk</h1><span class="muted" id="updated"></span><span class="muted">auto-refresh 10 s · generated from .desk/desk.json</span></header>
+  <div class="goal" id="goal"></div>
+  <div class="kpis" id="kpis"></div>
+  <div class="grid">
+    <section class="attn" id="attn-s"><h2>Needs attention <span class="n" id="attn-n"></span></h2><ul id="attn"></ul></section>
+    <section><h2>Now &amp; team <span class="n" id="now-n"></span></h2><ul id="now"></ul></section>
+    <section><h2>Queue <span class="n" id="queue-n"></span></h2><ul id="queue"></ul></section>
+    <section><h2>Waiting <span class="n" id="wait-n"></span></h2><ul id="wait"></ul></section>
+    <section><h2>Plans</h2><ul id="plans"></ul></section>
+    <section><h2>Memory &amp; lessons</h2><ul id="mem"></ul></section>
+    <section><h2>Recently closed</h2><ul id="closed"></ul></section>
+  </div>
+</main>
+<dialog id="dlg"><div id="dlg-body"></div><form method="dialog"><button>Close</button></form></dialog>
+<script>
+const D = /*DESK*/{"items":[],"goal":[]}/*END*/;
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const ICON = { inbox: '📥', todo: '⬜', doing: '🔵', waiting: '⏸', review: '🟡', done: '✅', dropped: '⏹', failed: '❌' };
+const T = D.items.filter((i) => i.kind === 'task');
+const by = (...s) => T.filter((t) => s.includes(t.status));
+const lead = (t) => !t.executor || t.executor === 'lead';
+const sortP = (a, b) => (a.prio || 'P9').localeCompare(b.prio || 'P9') || (b.uses || 0) - (a.uses || 0);
+const ago = (iso) => { if (!iso) return ''; const m = Math.round((Date.now() - Date.parse(iso)) / 60000); return m < 60 ? `${m}m` : m < 1440 ? `${Math.round(m / 60)}h` : `${Math.round(m / 1440)}d`; };
+function row(t, sub = '') {
+  const who = !lead(t) ? `<span class="who"> · ${esc([t.role, t.agent, t.model].filter(Boolean).join(' · ') || t.executor)}</span>` : '';
+  return `<li class="t" data-id="${esc(t.id)}">${ICON[t.status] || '·'} <span class="id">${esc(t.id)}</span>${t.prio ? `<span class="p ${t.prio}">${t.prio}</span>` : ''}${esc(t.text)}${who}${sub ? `<div class="sub">${sub}</div>` : ''}</li>`;
+}
+function fill(id, list, f, empty = 'nothing') { document.getElementById(id).innerHTML = list.length ? list.map(f).join('') : `<li class="empty">${empty}</li>`; const n = document.getElementById(id + '-n'); if (n) n.textContent = list.length || ''; }
+document.title = `Desk — ${D.title || ''}`;
+document.getElementById('title').textContent = `Desk — ${D.title || 'Work'}`;
+document.getElementById('updated').textContent = D.updated ? `updated ${ago(D.updated)} ago` : '';
+document.getElementById('goal').innerHTML = D.goal?.length ? `<b>Goal</b><ul>${D.goal.map((g) => `<li>${esc(g)}</li>`).join('')}</ul>` : '<span class="empty">Goal not set yet — the agent infers it from your requests.</span>';
+const k = [['doing', by('doing').length], ['queue', by('todo').length], ['waiting', by('waiting').length], ['review', by('review').length], ['inbox', by('inbox').length], ['workers', by('doing', 'review').filter((t) => !lead(t)).length]];
+document.getElementById('kpis').innerHTML = k.map(([l, v]) => `<div class="kpi"><b>${v}</b><span>${l}</span></div>`).join('');
+const attn = [
+  ...T.filter((t) => t.question).map((t) => row(t, `❓ ${esc(t.question.text)}`)),
+  ...by('review').map((t) => row(t, `verify${t.sha ? ' @' + esc(t.sha) : ''}: ${esc(t.proof || '')}`)),
+  ...by('failed').map((t) => row(t, `failed: ${esc(t.why || '')}`)),
+  ...by('waiting').filter((t) => t.on === 'user' || t.on === 'lead').map((t) => row(t, `waiting on ${esc(t.on)}`)),
+  ...(D.review || []).filter((r) => r.status === 'pending').map((r) => `<li class="t">📝 <span class="id">${esc(r.id)}</span> ${esc(r.title)}<div class="sub">waiting for your yes/no</div></li>`),
+  ...by('inbox').map((t) => row(t, 'unsorted')),
+];
+document.getElementById('attn').innerHTML = attn.length ? attn.join('') : '<li class="empty">nothing — all good</li>';
+document.getElementById('attn-n').textContent = attn.length || '';
+fill('now', by('doing').sort((a, b) => lead(b) - lead(a)), (t) => row(t, [t.done && `done: ${esc(t.done)}`, t.next && `next: ${esc(t.next)}`, t.plan && `plan ${esc(t.plan)}`].filter(Boolean).join(' · ')), 'no task in progress');
+fill('queue', by('todo').sort(sortP), (t) => row(t, [t.deps?.length && `after ${esc(t.deps.join(', '))}`, t.next && `next: ${esc(t.next)}`].filter(Boolean).join(' · ')), 'empty');
+fill('wait', by('waiting'), (t) => row(t, [t.on && `on ${esc(t.on)}`, t.until && `until ${esc(t.until)}`].filter(Boolean).join(' · ')), 'nothing waiting');
+const plans = [...new Set(T.map((t) => t.plan).filter(Boolean))].sort();
+document.getElementById('plans').innerHTML = plans.length ? plans.map((p) => { const ts = T.filter((t) => t.plan === p); const d = ts.filter((t) => t.status === 'done').length; return `<li class="t">${esc(p)} <span class="muted">${d}/${ts.length} done</span><div class="bar"><i style="width:${ts.length ? (100 * d) / ts.length : 0}%"></i></div></li>`; }).join('') : '<li class="empty">no plans (solo work)</li>';
+const mem = D.items.filter((i) => i.kind === 'memory').sort(sortP);
+const les = D.items.filter((i) => i.kind === 'lesson');
+document.getElementById('mem').innerHTML = [...mem.map((m) => `<li class="t">${m.pin ? '📌' : '·'} <span class="id">${esc(m.id)}</span> ${esc(m.text)}</li>`), ...les.map((l) => `<li class="t">✎ <span class="id">${esc(l.id)}</span> ×${l.seen || 1} ${esc(l.text)}</li>`)].join('') || '<li class="empty">nothing yet</li>';
+fill('closed', by('done', 'dropped', 'failed').reverse(), (t) => row(t, esc(t.proof || t.why || '')), 'nothing closed yet');
+document.querySelectorAll('li.t[data-id]').forEach((li) => li.addEventListener('click', () => {
+  const t = T.find((x) => x.id === li.dataset.id); if (!t) return;
+  const { history, ...rest } = t;
+  document.getElementById('dlg-body').innerHTML = `<h2>${esc(t.id)} ${esc(t.text)}</h2><pre>${esc(JSON.stringify(rest, null, 2))}</pre><h2>History</h2><pre>${esc((history || []).map((h) => `${h.at}  ${h.status}${h.note ? '  ' + h.note : ''}`).reverse().join('\n'))}</pre>`;
+  document.getElementById('dlg').showModal();
+}));
+setTimeout(() => { if (!document.getElementById('dlg').open) location.reload(); }, 10000);
+</script>
+</body>
+</html>

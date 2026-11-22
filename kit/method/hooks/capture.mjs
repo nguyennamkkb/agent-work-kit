@@ -1,36 +1,63 @@
 #!/usr/bin/env node
-// UserPromptSubmit: read what the user says so the desk keeps itself in order.
-//  - journal every prompt (.desk/.journal.jsonl, git-ignored) for the end-of-session retro;
-//  - bump × / @ on desk items the user refers to (that is how importance is learned);
-//  - when the prompt is a correction, an urgency, a "remember", or an approval, tell the agent what to file where.
+// UserPromptSubmit: read what the user says and keep the desk in order without the agent spending tokens.
+//  - journal the prompt (.desk/.journal.jsonl, git-ignored);
+//  - bump importance of items the prompt mentions; "urgent" lifts the mentioned task to P0;
+//  - "remember …" becomes a memory, a correction becomes a lesson (same lesson again → ×+1);
+//  - speak only when there is something to say (a normal prompt costs 0 tokens).
 // Kit-managed: do not edit.
-import fs from 'node:fs';
-import path from 'node:path';
-import { readStdinJson, projectDir, emitContext, readState, detectSignals, bumpMatches, journal, listReview, parseItems, read, DESK, ZONES } from './_lib.mjs';
+import { readStdinJson, projectDir, deskRoot, emitContext, readState, writeState, detectSignals, journal, listReview } from './_lib.mjs';
+import { hasDesk, mutate, bumpMatches, remember, lesson, focus, log as logItem } from './store.mjs';
+import { orcaAvailable, workerContext } from './team.mjs';
 
 const input = await readStdinJson();
-const root = projectDir(input);
-if (!fs.existsSync(path.join(root, DESK))) process.exit(0);
-const prompt = String(input.prompt ?? '');
-if (!prompt.trim() || prompt.trim().startsWith('/')) process.exit(0);
+const checkout = projectDir(input);
+const droot = deskRoot(checkout);
+const prompt = String(input.prompt ?? '').trim();
+if (!hasDesk(droot) || !prompt || prompt.startsWith('/') || workerContext(droot, checkout)) process.exit(0);
 
-const state = readState(root);
+const state = readState(droot);
 const signals = detectSignals(prompt);
-const bumped = bumpMatches(root, { text: prompt });
-journal(root, { s: state.session, signals, bumped, text: prompt.slice(0, 1000) });
-
-const now = parseItems(read(path.join(root, DESK, ZONES.now))).items[0];
+const C = 'node .agentkit/desk.mjs';
 const hints = [];
-if (signals.includes('correction'))
-  hints.push('This reads as a correction. Fix it first; then record the lesson in notebook.md (bump × if the same lesson exists).');
-if (signals.includes('remember'))
-  hints.push('The user wants this kept: a fact/decision → memory.md (above the line); a way of working → draft a proposal and ask in one sentence.');
-if (signals.includes('urgent'))
-  hints.push(now ? `Urgent. If this is not ${now.id}, put it at the top of queue.md as P0/P1; switch now only if the user means "now".` : 'Urgent → make it the task in now.md.');
-const pending = listReview(root).filter((r) => !r.archived && r.kind === 'P' && r.status === 'pending');
-if (signals.includes('approve') && pending.length)
-  hints.push(`If this approves ${pending.map((p) => p.id).join(' / ')}, set "- Status: approved" and quote the user's words under it, then apply.`);
-if (!now && !signals.includes('correction')) hints.push('No task in now.md: if this is a work request, write it there with a done-check before starting.');
-if (bumped.length) hints.push(`Related desk items: ${bumped.join(', ')} — read them before acting.`);
+const clip = (s) => s.replace(/\s+/g, ' ').slice(0, 280);
+let hit = [];
+let cur = null;
 
+mutate(droot, 'capture', (d) => {
+  hit = bumpMatches(d, { text: prompt });
+  cur = focus(d);
+  const question = /\?\s*$/.test(prompt);
+  if (signals.includes('remember') && !question) {
+    const r = remember(d, clip(prompt), { auto: true });
+    hints.push(r.merged ? `Already remembered as ${r.item.id} (×${r.item.uses}).` : `Saved the user's words as ${r.item.id}; reword it with \`${C} edit ${r.item.id} --text "…"\` only if it is unclear.`);
+  }
+  if (signals.includes('correction')) {
+    const r = lesson(d, clip(prompt), { auto: true });
+    hints.push(`Correction → ${r.item.id}${r.merged ? ` (seen ×${r.item.seen})` : ''}. Fix it first.${r.ripe ? ` Seen ${r.item.seen}×: propose a durable fix (\`${C} propose … --from ${r.item.id}\`).` : ''}`);
+  }
+  const task = hit.find((i) => i.kind === 'task');
+  if (signals.includes('urgent')) {
+    if (task && task.prio !== 'P0') (task.prio = 'P0'), logItem(task, null, 'user: urgent'), hints.push(`${task.id} raised to P0.`);
+    else if (!task) hints.push(`Urgent: if this is new work, \`${C} add P0 "…" --done "…" --now\` (the current task is parked with its next step).`);
+  }
+  if (signals.includes('later') && !task) hints.push(`"Later": file it with \`${C} add P2 "…"\` instead of starting it.`);
+  if (signals.includes('wait')) hints.push(`If a task now waits on someone or something: \`${C} wait ID --on user|Q-3|"who" [--until date]\`.`);
+  if (signals.includes('drop')) hints.push(`If the user drops a task: \`${C} drop ID --why "<their words>"\` (undo-able).`);
+  if (!hit.length && !hints.length) return { noop: true };
+});
+
+journal(droot, { s: state.session, signals, bumped: hit.map((i) => i.id), text: prompt.slice(0, 1000) });
+const pending = listReview(droot).filter((r) => !r.archived && r.kind === 'P' && r.status === 'pending');
+if (signals.includes('approve') && pending.length) hints.push(`If this approves ${pending.map((p) => p.id).join(' / ')}: \`${C} approve P-… --quote "<their words>"\`, then apply it.`);
+if (signals.includes('team') && orcaAvailable() && !state.teamAllowed) hints.push(`Team mode is available (Orca). Before the first worker, ask the user once; after their yes: \`${C} team allow --quote "…"\`. Guide: .agentkit/docs/team.md.`);
+const once = (key) => {
+  state.reminded ??= {};
+  if (state.reminded[key]) return false;
+  state.reminded[key] = true;
+  writeState(droot, state);
+  return true;
+};
+if (!cur && !signals.includes('correction') && once('no-focus')) hints.push(`No task in progress: if this is a work request, \`${C} add P1 "…" --done "<check>" --now\` before starting.`);
+const rel = hit.filter((i) => i.kind !== 'task' || i !== cur);
+if (rel.length) hints.push(`Related on the desk: ${rel.slice(0, 5).map((i) => i.id).join(', ')}.`);
 if (hints.length) emitContext('UserPromptSubmit', `[desk] ${hints.join(' ')}`);

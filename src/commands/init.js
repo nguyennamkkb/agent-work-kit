@@ -1,5 +1,5 @@
 import { sync, makeCtx, loadManifest } from '../lib/engine.js';
-import { availableNghe } from '../lib/bundle.js';
+import { availableProfessions } from '../lib/bundle.js';
 import { HARNESSES, detectHarnesses } from '../adapters/index.js';
 import { interactive, ask, confirm, pick } from '../lib/prompt.js';
 import { printReport } from '../lib/report.js';
@@ -12,18 +12,18 @@ export default async function init(opts) {
   const root = rootOf(opts);
   const existing = loadManifest(makeCtx({ root }));
   if (existing && !opts.force) {
-    console.log(`This project already has a ${existing.nghe.title} desk. Use \`update\`, \`switch --<profession>\`, or \`init --force\`.`);
+    console.log(`This project already has a ${existing.profession.title} desk. Use \`update\`, \`switch --<profession>\`, or \`init --force\`.`);
     return 0;
   }
-  let { nghe, harnesses } = pickFlags(opts);
+  let { profession, harnesses } = pickFlags(opts);
 
-  if (!nghe) {
-    const all = availableNghe();
+  if (!profession) {
+    const all = availableProfessions();
     if (!tty) throw new Error(`Choose a profession: ${all.map((n) => '--' + n.name).join(' or ')}`);
     all.forEach((n, i) => console.log(`  ${i + 1}. ${n.name} — ${n.description}`));
     const a = await ask('Profession for this desk', '1');
-    nghe = /^\d+$/.test(a) ? all[Number(a) - 1]?.name : a;
-    if (!nghe) throw new Error('No profession chosen.');
+    profession = /^\d+$/.test(a) ? all[Number(a) - 1]?.name : a;
+    if (!profession) throw new Error('No profession chosen.');
   }
 
   if (!harnesses.length) {
@@ -35,8 +35,8 @@ export default async function init(opts) {
     } else harnesses = preset;
   }
 
-  const ctx = makeCtx({ root, harnesses, nghe });
-  if (tty && !(await confirm(`Set up a ${nghe} desk in ${root} for ${harnesses.join(', ') || 'AGENTS.md only'}?`))) return 1;
+  const ctx = makeCtx({ root, harnesses, profession });
+  if (tty && !(await confirm(`Set up a ${profession} desk in ${root} for ${harnesses.join(', ') || 'AGENTS.md only'}?`))) return 1;
   const res = sync(ctx, { force: opts.force, dryRun: opts.dryRun });
   console.log(color.bold(opts.dryRun ? 'Would change:' : 'Desk installed:'));
   printReport(res, { verbose: opts.verbose });

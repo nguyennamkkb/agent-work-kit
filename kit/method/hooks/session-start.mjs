@@ -1,13 +1,28 @@
 #!/usr/bin/env node
-// SessionStart: count the session, sort the desk mechanically (on startup), show the surface. Kit-managed: do not edit.
-import { readStdinJson, projectDir, bumpSession, readState, renderSurface, autoSort, git } from './_lib.mjs';
+// SessionStart: count the session, sort the desk mechanically, show the surface (or a worker's own task).
+// Kit-managed: do not edit.
+import { readStdinJson, projectDir, deskRoot, bumpSession, readState, git } from './_lib.mjs';
+import { hasDesk, load, mutate, autoSort, surface } from './store.mjs';
+import { workerContext } from './team.mjs';
 
 const input = await readStdinJson();
-const root = projectDir(input);
+const checkout = projectDir(input);
+const droot = deskRoot(checkout);
+if (!hasDesk(droot)) process.exit(0);
+const worker = workerContext(droot, checkout);
+if (worker) {
+  process.stdout.write(worker + '\n');
+  process.exit(0);
+}
 const startup = !input.source || input.source === 'startup';
-const state = startup ? bumpSession(root) : readState(root);
-const moves = startup ? autoSort(root, state) : [];
-let out = renderSurface(root, { session: state, moves });
-const log = git(root, ['log', '--oneline', '-5', '--', '.']);
-if (log) out += '\nRecent commits:\n' + log.split('\n').map((l) => '  ' + l).join('\n');
+const state = startup ? bumpSession(droot) : readState(droot);
+let moves = [];
+if (startup)
+  mutate(droot, 'auto-sort', (d) => {
+    moves = autoSort(droot, d, state);
+    return moves.length ? moves : { noop: true };
+  });
+let out = surface(droot, load(droot), { state, moves });
+const log = git(checkout, ['log', '--oneline', '-3']);
+if (log) out += '\nRecent commits: ' + log.split('\n').join(' | ');
 process.stdout.write(out + '\n');

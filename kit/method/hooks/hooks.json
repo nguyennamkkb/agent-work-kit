@@ -1,11 +1,11 @@
 [
   { "event": "SessionStart", "matcher": "", "script": "session-start.mjs", "timeout": 10,
-    "soft": "At session start, read .desk/goal.md, now.md, the top of queue.md, memory.md above the line, rules.local.md and `git log --oneline -5`; re-sort zones that are out of order." },
+    "soft": "At session start run `node .agentkit/desk.mjs status` and `git log --oneline -3`; follow what it says." },
   { "event": "UserPromptSubmit", "matcher": "", "script": "capture.mjs", "timeout": 10,
-    "soft": "Read each user message for corrections (→ lesson), urgency (→ priority), \"remember\" (→ memory) and approvals (→ proposal status); bump × and @ on desk items it mentions." },
+    "soft": "Read each user message: \"remember …\" → `remember`; a correction → `lesson`; urgent → `prio ID P0`; later → `add P2`; waiting → `wait`; dropped → `drop --why`." },
   { "event": "PreToolUse", "matcher": "edit", "script": "guard.mjs", "timeout": 10,
-    "soft": "Write only to desk zones, in the item format, within capacity. Never edit the agentkit block, `.agentkit.json` or kit files." },
+    "soft": "Never write .desk/desk.json, DESK.md or archive/ yourself — use `node .agentkit/desk.mjs`. Never edit the agentkit block, `.agentkit.json` or kit files." },
   { "event": "PostToolUse", "matcher": "edit", "script": "desk-check.mjs", "timeout": 10 },
   { "event": "Stop", "matcher": "", "script": "stop-check.mjs", "timeout": 10,
-    "soft": "Before ending: inbox.md empty, now.md updated, user corrections recorded as lessons, commit." }
+    "soft": "Before ending: inbox sorted, the task `done` (with proof) or its `next` set, worker reports verified, code and .desk/ committed." }
 ]

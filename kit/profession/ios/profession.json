@@ -1,0 +1,35 @@
+{
+  "name": "ios",
+  "title": "iOS",
+  "version": "1.1.0",
+  "description": "iOS / Swift app development (SwiftUI, Swift Concurrency, Xcode)",
+  "checks": [
+    {
+      "cmd": "xcodebuild",
+      "required": false,
+      "hint": "install Xcode command line tools (macOS)"
+    },
+    {
+      "cmd": "swiftlint",
+      "required": false,
+      "hint": "brew install swiftlint"
+    }
+  ],
+  "team": {
+    "build": "",
+    "test": {
+      "command": "",
+      "exclusive": "simulator",
+      "scope": ""
+    },
+    "leadFiles": [
+      "project.pbxproj",
+      ".xcstrings",
+      "Info.plist"
+    ],
+    "notes": [
+      "Every test run installs the app on the booted simulator: two concurrent test runs kill each other's host, so only the tester holding the simulator lease runs tests. Builds are safe in parallel.",
+      "Environment recovery: pgrep -fl 'xcodebuild test'; xcrun simctl shutdown <udid> && xcrun simctl boot <udid>."
+    ]
+  }
+}

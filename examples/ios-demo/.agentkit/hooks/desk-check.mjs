@@ -1,17 +1,26 @@
 #!/usr/bin/env node
-// After a file write that touched .desk/: lint the whole desk. Catches what could not be checked before the write
-// (e.g. edit formats a harness does not expose). Exit 2 + stderr tells the agent what to fix. Kit-managed: do not edit.
+// After a direct write inside .desk/ (rules.local.md, team.json, plans, proposals): check what could not be checked
+// before the write. Exit 2 + stderr tells the agent what to fix. Kit-managed: do not edit.
 import path from 'node:path';
-import { readStdinJson, projectDir, normalizeWrites, lintDesk, DESK } from './_lib.mjs';
+import { read, readStdinJson, projectDir, deskRoot, normalizeWrites, DESK, LOCAL_RULES, lintLocalRules, toPosix } from './_lib.mjs';
+import { loadTeam, routingErrors } from './team.mjs';
 
 const input = await readStdinJson();
-const root = projectDir(input);
-const touched = normalizeWrites(root, input.tool_name, input.tool_input ?? {}, input.cwd).some((w) => {
-  const rel = path.relative(root, w.path).split(path.sep).join('/');
-  return rel === DESK || rel.startsWith(DESK + '/');
-});
-if (!touched) process.exit(0);
-const errors = lintDesk(root);
+const checkout = projectDir(input);
+const droot = deskRoot(checkout);
+const errors = [];
+for (const w of normalizeWrites(checkout, input.tool_name, input.tool_input ?? {}, input.cwd)) {
+  const rel = toPosix(path.relative(droot, w.path));
+  if (rel === `${DESK}/${LOCAL_RULES}`) errors.push(...lintLocalRules(droot, read(w.path) ?? ''));
+  if (rel === `${DESK}/team.json`) {
+    try {
+      JSON.parse(read(w.path) ?? '{}');
+      errors.push(...routingErrors(loadTeam(droot).routing).map((e) => `team.json routing: ${e}`));
+    } catch (e) {
+      errors.push(`team.json is not valid JSON: ${e.message}`);
+    }
+  }
+}
 if (!errors.length) process.exit(0);
-process.stderr.write(`[desk] The desk is now invalid — fix it before continuing:\n- ${errors.slice(0, 8).join('\n- ')}\n`);
+process.stderr.write(`[desk] Fix before continuing:\n- ${errors.slice(0, 8).join('\n- ')}\n`);
 process.exit(2);

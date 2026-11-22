@@ -1,63 +1,86 @@
 #!/usr/bin/env node
 // Before a file write (any harness):
-//  1. kit-managed files and the agentkit block stay untouched;
-//  2. writes inside .desk/ go only to zones and must leave the desk valid (format, capacity, approved local rules).
+//  1. the desk data and its generated views change only through `node .agentkit/desk.mjs`;
+//  2. plans, proposals, team.json and rules.local.md may be written directly (rules need an approved proposal);
+//  3. kit-managed files and the agentkit block stay untouched.
 // Exit 2 + stderr = blocked (Claude Code, Codex; the Pi/omp/OpenCode bridges translate it). Kit-managed: do not edit.
 import path from 'node:path';
-import { read, readStdinJson, projectDir, findManifest, DESK, KIT_STATE, ZONES, allowedDeskPath, lintFile, normalizeWrites, bumpMatches } from './_lib.mjs';
+import { read, readStdinJson, projectDir, deskRoot, findManifest, DESK, LOCAL_RULES, lintLocalRules, normalizeWrites, toPosix } from './_lib.mjs';
+import { hasDesk, load, mutate, bumpMatches } from './store.mjs';
 
 const START = '<!-- agentkit:start -->';
 const END = '<!-- agentkit:end -->';
 const input = await readStdinJson();
-const root = projectDir(input);
-const writes = normalizeWrites(root, input.tool_name, input.tool_input ?? {}, input.cwd);
+const checkout = projectDir(input);
+const droot = deskRoot(checkout);
+const writes = normalizeWrites(checkout, input.tool_name, input.tool_input ?? {}, input.cwd);
 if (!writes.length) process.exit(0);
 
-const KIT_HINT =
-  'Kit files change only via `npx github:nguyennamkkb/agent-work-kit update`. To change how work is done, draft a proposal in .desk/review/ and ask the user in one sentence; approved project rules go to .desk/rules.local.md.';
+const C = 'node .agentkit/desk.mjs';
+const KIT_HINT = 'Kit files change only via `npx github:nguyennamkkb/agent-work-kit update`. To change how work is done, `' + C + ' propose …` and ask the user in one sentence.';
+const DIRECT = [/^review\/[PU]-[\w.-]+\.md$/, /^plans\/[\w./-]+\.md$/, /^team\.json$/, new RegExp(`^${LOCAL_RULES.replace('.', '\\.')}$`)];
 const problems = [];
-const m = findManifest(root);
+const m = findManifest(checkout);
+const touchedFiles = [];
 
 for (const w of writes) {
-  const rel = path.relative(root, w.path).split(path.sep).join('/');
-  if (rel.startsWith('..')) continue;
-
-  if (rel === DESK || rel.startsWith(DESK + '/')) {
-    const inner = rel.slice(DESK.length + 1);
-    if (KIT_STATE.includes(inner)) problems.push(`.desk/${inner} is maintained by the kit hooks.`);
-    else if (!allowedDeskPath(inner))
-      problems.push(`.desk/${inner} is not a desk zone. Zones: goal.md now.md queue.md inbox.md memory.md notebook.md rules.local.md review/P-*.md archive/*.md.`);
-    else if (w.deleted && Object.values(ZONES).includes(inner)) problems.push(`.desk/${inner} is a zone; empty it instead of deleting it.`);
-    else if (w.next != null) problems.push(...lintFile(root, inner, w.next, read(w.path) ?? ''));
-    continue;
-  }
-  if (!m) continue;
-  if (w.path === m.path) {
-    problems.push('.agentkit.json is the kit manifest.');
-    continue;
-  }
-  const entry = m.data.files?.[rel];
-  if (!entry) {
-    bumpMatches(root, { file: rel }); // editing a file makes desk items that reference it more important
-    continue;
-  }
-  if (entry.kind === 'file') problems.push(`${rel} is installed by agent-work-kit.`);
-  else if (entry.kind === 'json') problems.push(`${rel} holds kit hooks/permissions; explain the change you need to the user instead.`);
-  else if (entry.kind === 'block') {
-    const cur = read(w.path) ?? '';
-    const s = cur.indexOf(START);
-    const e = cur.indexOf(END);
-    if (s >= 0 && e >= 0 && w.next != null && !w.next.includes(cur.slice(s, e + END.length)))
-      problems.push(`the agentkit block in ${rel} must stay unchanged; edit below the end marker instead.`);
-    if (w.deleted) problems.push(`${rel} holds the agentkit block; do not delete it.`);
+  for (const base of [...new Set([checkout, droot])]) {
+    const rel = toPosix(path.relative(base, w.path));
+    if (rel.startsWith('..') || path.isAbsolute(rel)) continue;
+    if (rel === DESK || rel.startsWith(DESK + '/')) {
+      const inner = rel.slice(DESK.length + 1);
+      if (base !== droot) problems.push(`.desk/ of this worktree is a copy; the team's desk is ${path.join(droot, DESK)} — change it with \`${C}\`.`);
+      else if (!DIRECT.some((re) => re.test(inner))) problems.push(`.desk/${inner} is written only by the desk command: use \`${C} <verb>\` (add, edit, start, done, wait, drop, remember, lesson, goal, … — \`${C} help\`).`);
+      else if (w.deleted && inner === LOCAL_RULES) problems.push(`.desk/${LOCAL_RULES} holds the project rules; empty it instead of deleting it.`);
+      else if (inner === LOCAL_RULES && w.next != null) problems.push(...lintLocalRules(droot, w.next, read(w.path) ?? ''));
+      else if (inner === 'team.json' && w.next != null) {
+        try {
+          JSON.parse(w.next);
+        } catch (e) {
+          problems.push(`.desk/team.json must stay valid JSON (${e.message}); or use \`${C} team set key value\`.`);
+        }
+      }
+      break;
+    }
+    if (base !== checkout || !m) continue;
+    if (w.path === m.path) {
+      problems.push('.agentkit.json is the kit manifest.');
+      continue;
+    }
+    const entry = m.data.files?.[rel];
+    if (!entry) {
+      touchedFiles.push(rel);
+      continue;
+    }
+    if (entry.kind === 'file') problems.push(`${rel} is installed by agent-work-kit.`);
+    else if (entry.kind === 'json') problems.push(`${rel} holds kit hooks/permissions; explain the change you need to the user instead.`);
+    else if (entry.kind === 'block') {
+      const cur = read(w.path) ?? '';
+      const s = cur.indexOf(START);
+      const e = cur.indexOf(END);
+      if (s >= 0 && e >= 0 && w.next != null && !w.next.includes(cur.slice(s, e + END.length))) problems.push(`the agentkit block in ${rel} must stay unchanged; edit below the end marker instead.`);
+      if (w.deleted) problems.push(`${rel} holds the agentkit block; do not delete it.`);
+    }
   }
 }
 
 if (problems.length) {
-  const kit = problems.some((p) => /kit|agentkit|manifest/.test(p));
-  process.stderr.write(
-    `[desk] Blocked:\n- ${problems.join('\n- ')}\n${kit ? KIT_HINT : 'Fix the content and retry. When moving items between zones, remove from the source zone first.'}\n`,
-  );
+  const kit = problems.some((p) => /installed by|kit hooks|agentkit block|manifest/.test(p));
+  process.stderr.write(`[desk] Blocked:\n- ${problems.join('\n- ')}\n${kit ? KIT_HINT : ''}\n`);
   process.exit(2);
+}
+// Editing a file makes the desk items that reference it more important (once a day each).
+if (touchedFiles.length && hasDesk(droot)) {
+  try {
+    const probe = load(droot);
+    if (touchedFiles.some((f) => bumpMatches(JSON.parse(JSON.stringify(probe)), { file: f }).length))
+      mutate(droot, 'touch-file', (d) => {
+        let n = 0;
+        for (const f of touchedFiles) n += bumpMatches(d, { file: f }).length;
+        return n ? n : { noop: true };
+      });
+  } catch {
+    /* never block a write over bookkeeping */
+  }
 }
 process.exit(0);
