@@ -215,9 +215,9 @@ CLAUDE.md                       @AGENTS.md (nếu dùng Claude Code)
 
 **Nên commit:** tất cả các file trên. `.desk/.journal.jsonl` và `.desk/.state.json` đã được `.desk/.gitignore` loại ra.
 
-**Kit chỉ ghi vào thư mục dự án.** Kit không ghi gì vào thư mục home hay cấu hình global của harness. Ngoài dự án chỉ có hai thứ, và cả hai đều không do kit tạo:
-- bộ nhớ đệm tải package của `npx` (do npm quản lý);
-- bản ghi tin cậy mà Codex và Pi lưu khi bạn đồng ý tin cậy dự án.
+**Kit chỉ ghi vào thư mục dự án.** Kit không ghi gì vào thư mục home hay cấu hình global của harness.
+- **Cache của `npx` tự được dọn.** Mỗi lệnh chạy qua `npx` xong, kit xoá bản sao của chính nó trong `~/.npm/_npx/` và các mục tải về của nó trong cache npm. Cache của package khác không bị đụng tới. Hook vẫn chạy vì chúng nằm trong dự án (`.agentkit/hooks/`). Muốn giữ cache thì đặt `AGENTKIT_KEEP_CACHE=1`.
+- Ngoài dự án chỉ còn những thứ không do kit tạo: log của npm (`~/.npm/_logs/`) và bản ghi tin cậy mà Codex và Pi lưu khi bạn đồng ý tin cậy dự án.
 
 **Kit không phá file của bạn:**
 - Trong `AGENTS.md` và `CLAUDE.md`, kit chỉ ghi vào vùng giữa hai marker `agentkit:start/end`.

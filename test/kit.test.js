@@ -11,6 +11,7 @@ import { applyPatch, revertPatch } from '../src/lib/jsonmerge.js';
 import { upsertBlock, removeBlock, extractBlock } from '../src/lib/markers.js';
 import { parseArgs, pickFlags } from '../src/cli.js';
 import { lintDesk, lintFile, parseItems, parseRules, listReview } from '../kit/method/hooks/_lib.mjs';
+import { selfClean } from '../src/lib/selfclean.js';
 const listReviewPending = (root) => listReview(root).filter((r) => !r.archived && r.status === 'pending').length;
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -353,4 +354,20 @@ test('npm package ships every file the kit needs (npm silently drops some, e.g. 
   const missing = need.filter((f) => !packed.has(f));
   assert.deepEqual(missing, []);
   assert.ok(packed.has('kit/method/desk/gitignore'));
+});
+
+test('self-clean: removes only its own npx folder, and only when run from the npx cache', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ak-clean-'));
+  const pkg = path.join(tmp, '.npm', '_npx', 'abc123', 'node_modules', 'agent-work-kit');
+  const other = path.join(tmp, '.npm', '_npx', 'other99');
+  fs.mkdirSync(pkg, { recursive: true });
+  fs.mkdirSync(other, { recursive: true });
+  const env = { PATH: '' }; // no npm on PATH: the cache-key step is skipped, the folder step still runs
+  assert.deepEqual(selfClean({ root: path.join(tmp, 'clone'), env }), []); // a git clone is never touched
+  assert.deepEqual(selfClean({ root: pkg, env: { ...env, AGENTKIT_KEEP_CACHE: '1' } }), []);
+  assert.ok(fs.existsSync(pkg));
+  selfClean({ root: pkg, env });
+  assert.ok(!fs.existsSync(path.join(tmp, '.npm', '_npx', 'abc123')));
+  assert.ok(fs.existsSync(other), 'other npx entries stay');
+  fs.rmSync(tmp, { recursive: true, force: true });
 });
