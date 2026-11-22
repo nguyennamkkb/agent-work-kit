@@ -42,9 +42,10 @@ const ok = (s) => `✓ ${s}`;
 const line = (t) => `${S.ICON[t.status] ?? '·'} ${S.fmt(t)}${t.status === 'waiting' ? ` (${[t.on && 'on ' + t.on, t.until && 'until ' + t.until].filter(Boolean).join(', ')})` : ''}`;
 const isPrio = (s) => /^P[0-3]$/i.test(s ?? '');
 
-export function run(argv, { cwd = process.cwd(), out = (s) => process.stdout.write(s + '\n') } = {}) {
-  const checkout = projectDir({ cwd });
-  const droot = deskRoot(checkout);
+export function run(argv, { cwd = process.cwd(), home = null, out = (s) => process.stdout.write(s + '\n') } = {}) {
+  let checkout = projectDir({ cwd });
+  let droot = deskRoot(checkout);
+  if (!S.hasDesk(droot) && home && S.hasDesk(deskRoot(home))) (checkout = home), (droot = deskRoot(home));
   const { pos, o } = parse(argv);
   const verb = (pos.shift() ?? 'status').toLowerCase();
   const print = (x) => (Array.isArray(x) ? x.forEach((l) => out(l)) : out(x));
@@ -298,9 +299,9 @@ function decide(droot, id, verb, quote) {
   return p;
 }
 
-export function main(argv) {
+export function main(argv, { home = null } = {}) {
   try {
-    run(argv);
+    run(argv, { home });
     return 0;
   } catch (e) {
     process.stderr.write(`✗ ${e.message}\n`);

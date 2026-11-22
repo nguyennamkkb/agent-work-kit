@@ -34,15 +34,20 @@ export function readJson(p, fallback = null) {
 
 export const exists = (p) => fs.existsSync(p);
 
-export function removeFile(p) {
+/**
+ * Delete a file, then prune the directories it leaves empty — but only strictly inside `stopAt`
+ * (the project root). The project directory itself and everything above it are never removed.
+ */
+export function removeFile(p, stopAt) {
+  if (!stopAt) throw new Error('removeFile needs the project root (stopAt)');
   try {
     fs.unlinkSync(p);
   } catch {
     return;
   }
-  // prune empty parent dirs (stop at first non-empty)
-  let dir = path.dirname(p);
-  for (let i = 0; i < 4; i++) {
+  const root = path.resolve(stopAt);
+  let dir = path.dirname(path.resolve(p));
+  while (dir !== root && dir.startsWith(root + path.sep)) {
     try {
       if (fs.readdirSync(dir).length) break;
       fs.rmdirSync(dir);

@@ -6,6 +6,8 @@ description: The work method for this project — one desk (.desk/desk.json) hol
 
 You work at one desk, for one profession. Everything you are doing or must remember lives on it. Nothing important lives only in chat.
 
+**Answer in the user's language.** Your own working documents for a task (plans, design notes, research) go in `.desk/plans/` (`C plan <slug>`); what the user asked for (a page, a document, code) goes in the project where they expect it.
+
 **The user never maintains the desk.** They just work with you. You infer the goal, the tasks, their priority and what to remember from what they ask, correct, repeat and emphasize. The hooks help: they show the desk at session start, save "remember…" and corrections by themselves, raise what the user calls urgent, and remind you before you stop. Ask only when two readings lead to different work, in one sentence.
 
 **Change the desk only with the command** (`C` = `node .agentkit/desk.mjs`; one line out, never read or edit `.desk/desk.json` or `DESK.md` yourself; `C help` lists everything):
@@ -30,7 +32,7 @@ You work at one desk, for one profession. Everything you are doing or must remem
 **Anti-drift:** every task serves the goal. Small off-goal requests: do them, file them P2+. Direction clearly changed: update the goal and say so in one line.
 
 ## Session loop
-1. Read the surface the hook printed (or `C status`). Goal missing → infer it, `C goal …`, say it in one line. Build/test commands unknown → find them, `C remember` them.
+1. Read the surface the hook printed (or `C status`). Goal missing → take it from what the user asks for (README and git log are background only), `C goal …`, say it in one line. Build/test commands unknown → find them, `C remember` them.
 2. Apply approved proposals first. Never act on pending ones.
 3. The user's request is the task (`add … --now`; the old one is parked with its next step). Search memory and lessons for what you are about to touch (`C list --all`).
 4. Work in small steps, run the checks, commit each green step. New things on the way → `C add P2` or `C inbox`; don't wander off.

@@ -189,7 +189,10 @@ test('session-start: counts sessions, shows a short surface; a worker sees only 
   const out = hook(root, 'session-start.mjs', { source: 'startup' }).stdout;
   assert.match(out, /iOS desk · session 1/);
   assert.match(out, /Now: Q-1 P1 Login screen · done: tests/);
-  assert.ok(out.length < 900, `surface stays short (${out.length} chars)`);
+  const surfacePart = out.split('<desk-skill')[0];
+  assert.ok(surfacePart.length < 900, `surface stays short (${surfacePart.length} chars)`);
+  assert.match(out, /<desk-skill source="\.claude\/skills\/desk\/SKILL\.md">[\s\S]*# The desk[\s\S]*### IOS-001 · P0[\s\S]*<\/desk-skill>/, 'the skill is handed over at a new session (models may not load it themselves)');
+  assert.doesNotMatch(hook(root, 'session-start.mjs', { source: 'resume' }).stdout, /<desk-skill/, 'not repeated on resume');
   S.mutate(root, 'w', (d) => {
     const t = S.addTask(d, { text: 'engineer: API client', role: 'engineer' }).item;
     Object.assign(t, { status: 'doing', executor: 'orca', terminal: 'term_W', dispatch: 'ctx_1', spec: '.desk/plans/specs/Q-2.sent.md' });
@@ -241,4 +244,40 @@ test('DESK.md and desk.html are regenerated on every change', () => {
   assert.match(md, /## Waiting[\s\S]*\*\*Q-2\*\* P2 Widgets — on design team/);
   const html = read(D(root, 'desk.html'));
   assert.ok(html.includes('"Paywall"') && !html.includes('/*DESK*/'));
+});
+
+// ------------------------------------------------------------------ regressions from the OpenCode smoke test (2026-11-22)
+test('smoke: prompts from a real session — no false mentions, drop is recognized, resumed session ids count once', async () => {
+  const root = install();
+  const { detectSignals } = await import('../kit/method/hooks/_lib.mjs');
+  S.mutate(root, 'seed', (d) => {
+    S.lesson(d, "Kế hoạch theo thời hạn (học, tập, dự án) phải chốt mốc thật trước khi chia tuần: JLPT chỉ thi tháng 7 và 12, nên '3 tháng nữa thi' lệch lịch");
+    S.remember(d, 'Tài liệu tiếng Nhật của mình: KHÔNG viết romaji — thuật ngữ Nhật viết bằng kana', { pin: true });
+    S.addTask(d, { text: 'Tìm bộ đề thi thử N5: đề mẫu chính thức' });
+  });
+  const probe = (text) => S.bumpMatches(JSON.parse(JSON.stringify(S.load(root))), { text }).map((i) => i.id);
+  assert.deepEqual(probe('nhớ: mình chỉ học được buổi tối sau 21h, cuối tuần học được 2 tiếng'), []);
+  assert.deepEqual(probe('Nên dùng Anki hay app Duolingo để học từ vựng?'), []);
+  assert.deepEqual(probe('để sau: tìm một bộ đề thi thử N5. Còn việc chọn giáo trình thì chờ mình hỏi giáo viên đã.'), ['Q-1']);
+  assert.ok(detectSignals('thôi bỏ việc tìm đề thi thử đi, mình có rồi').includes('drop'));
+  const start = (sid) => hook(root, 'session-start.mjs', { source: 'startup', session_id: sid });
+  start('ses_A');
+  start('ses_A');
+  assert.equal(JSON.parse(read(D(root, '.state.json'))).session, 1, 'the same session id resumed is not a new session');
+  start('ses_B');
+  assert.equal(JSON.parse(read(D(root, '.state.json'))).session, 2);
+  assert.match(S.surface(root, { ...S.load(root), goal: [] }), /take it from what the user asks for/);
+});
+
+test('stop-check notices changed files without git (projects outside coding often have none)', () => {
+  const root = install({ git: false });
+  desk(root, 'add', 'P1', 'Landing page', '--now', '--done', 'renders');
+  desk(root, 'done', '--proof', 'opened in the browser');
+  assert.equal(S.find(S.load(root), 'Q-1').next, undefined, 'a closed task keeps no next step');
+  const stop = () => hook(root, 'stop-check.mjs', {});
+  assert.equal(stop().stdout, '', 'nothing changed yet');
+  const later = Date.now() / 1000 + 5;
+  fs.writeFileSync(path.join(root, 'styles.css'), 'body{}');
+  fs.utimesSync(path.join(root, 'styles.css'), later, later);
+  assert.match(JSON.parse(stop().stdout).reason, /1 file\(s\) changed but no task is in progress/);
 });

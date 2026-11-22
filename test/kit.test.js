@@ -222,3 +222,26 @@ test('self-clean: drops only cacache buckets and blobs that belong to the kit', 
   assert.ok(fs.existsSync(other) && fs.existsSync(otherBlob));
   fs.rmSync(tmp, { recursive: true, force: true });
 });
+
+test('remove never deletes the project directory or its parents, even when only kit files were in it', () => {
+  const parent = tmp();
+  const root = path.join(parent, 'project');
+  fs.mkdirSync(root);
+  const ctx = makeCtx({ root, harnesses: ['pi', 'claude'], profession: 'universal' });
+  sync(ctx);
+  fs.rmSync(path.join(root, '.desk'), { recursive: true, force: true }); // only kit files left
+  uninstall(ctx);
+  assert.ok(fs.existsSync(root), 'the project directory stays');
+  assert.ok(fs.existsSync(parent), 'its parent stays');
+  assert.deepEqual(fs.readdirSync(root), [], 'kit files and their empty folders are gone');
+});
+
+test('skill frontmatter is valid YAML for strict parsers: the description is a quoted scalar', () => {
+  for (const n of availableProfessions()) {
+    const raw = loadKit(n.name).skill.raw;
+    const line = raw.split('\n').find((l) => l.startsWith('description: '));
+    const value = line.slice('description: '.length);
+    assert.ok(value.startsWith('"') && value.endsWith('"'), `${n.name}: description is quoted`);
+    assert.match(JSON.parse(value), /Profession: /, 'JSON string quoting is valid YAML and round-trips');
+  }
+});

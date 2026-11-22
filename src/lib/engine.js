@@ -200,19 +200,19 @@ export function sync(ctx, { force = false, dryRun = false } = {}) {
 
 export function removeEntry(ctx, r, entry, { force = false, dryRun = false } = {}) {
   const p = path.join(ctx.root, r);
-  if (!dryRun && exists(p + '.kit-new')) removeFile(p + '.kit-new');
+  if (!dryRun && exists(p + '.kit-new')) removeFile(p + '.kit-new', ctx.root);
   const cur = readText(p);
   if (cur == null) return { removed: true };
   if (entry.kind === 'file') {
     if (!force && sha(cur) !== entry.hash) return { removed: false, reason: 'edited by hand; kept' };
-    if (!dryRun) removeFile(p);
+    if (!dryRun) removeFile(p, ctx.root);
     return { removed: true };
   }
   if (entry.kind === 'block') {
     if (!extractBlock(cur)) return { removed: true };
     const rest = removeBlock(cur);
     const untouched = !rest.trim() || (entry.stub && sha(rest.trim()) === entry.stub);
-    if (!dryRun) untouched ? removeFile(p) : writeText(p, rest);
+    if (!dryRun) untouched ? removeFile(p, ctx.root) : writeText(p, rest);
     return { removed: true };
   }
   if (entry.kind === 'json') {
@@ -225,7 +225,7 @@ export function removeEntry(ctx, r, entry, { force = false, dryRun = false } = {
         /* original was not valid JSON; keep the reverted object */
       }
     }
-    if (!dryRun) Object.keys(obj).length ? writeText(p, text) : removeFile(p);
+    if (!dryRun) Object.keys(obj).length ? writeText(p, text) : removeFile(p, ctx.root);
     return { removed: true };
   }
   return { removed: false, reason: 'unknown entry' };
@@ -239,6 +239,6 @@ export function uninstall(ctx, { force = false, dryRun = false } = {}) {
     const res = removeEntry(ctx, r, entry, { force, dryRun });
     report.push({ action: res.removed ? 'remove' : 'keep', path: r, extra: res.reason ?? '' });
   }
-  if (!dryRun) removeFile(manifestPath(ctx));
+  if (!dryRun) removeFile(manifestPath(ctx), ctx.root);
   return { report };
 }

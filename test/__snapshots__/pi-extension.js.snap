@@ -45,7 +45,7 @@ function akContext(out) {
   return t;
 }
 
-const akSessionStart = (root, startup) => akContext(akRun(root, 'session-start.mjs', { hook_event_name: 'SessionStart', source: startup ? 'startup' : 'resume' }).out);
+const akSessionStart = (root, startup, sessionId) => akContext(akRun(root, 'session-start.mjs', { hook_event_name: 'SessionStart', source: startup ? 'startup' : 'resume', ...(sessionId ? { session_id: String(sessionId) } : {}) }).out);
 const akCapture = (root, prompt) => (prompt ? akContext(akRun(root, 'capture.mjs', { hook_event_name: 'UserPromptSubmit', prompt }).out) : '');
 const isWriteTool = (name, input) => /write|edit|patch|create|replace/i.test(String(name)) || JSON.stringify(input ?? {}).includes('*** Begin Patch');
 /** Returns a block reason, or null. */

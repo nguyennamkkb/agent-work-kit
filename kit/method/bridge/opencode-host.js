@@ -22,7 +22,7 @@ export default {
         const parts = [];
         if (!started.has(sid)) {
           started.add(sid);
-          parts.push(akSessionStart(root, true));
+          parts.push(akSessionStart(root, true, sid)); // a resumed session id (e.g. `opencode run -c`) is not a new session
         }
         parts.push(akCapture(root, e?.prompt?.text));
         const text = parts.filter(Boolean).join('\n\n');

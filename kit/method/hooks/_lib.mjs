@@ -401,7 +401,7 @@ export const SIGNALS = {
   remember: W('nhớ|ghi nhớ|luôn luôn|luôn|không bao giờ|từ giờ|từ nay|remember|always|never|from now on|going forward'),
   later: W('để sau|làm sau|lúc khác|khi nào rảnh|tuần sau|later|someday|sometime|next week|not now'),
   wait: W('chờ|đợi|hold|on hold|wait for|waiting for|blocked by|pending'),
-  drop: W('bỏ đi|bỏ qua|thôi khỏi|không cần nữa|không làm nữa|huỷ|hủy|cancel|drop it|skip it|never mind|forget it'),
+  drop: W('bỏ đi|bỏ qua|bỏ việc|bỏ cái|bỏ luôn|thôi khỏi|không cần nữa|không làm nữa|huỷ|hủy|cancel|drop it|skip it|never mind|forget it'),
   team: W('song song|chia việc|giao việc|worker|đội|nhóm agent|parallel|delegate|team|orchestrate|worktree'),
   approve: /^\s*(ok|oke|okay|yes|yep|ừ|ừm|uh|đồng ý|duyệt|được|được rồi|chốt|làm đi|go ahead|approve[d]?|lgtm|sounds good)\b/iu,
 };
@@ -412,5 +412,5 @@ export function detectSignals(prompt) {
 }
 export const words = (s) => (String(s).toLowerCase().normalize('NFC').match(/[\p{L}\p{N}_]{3,}/gu) ?? []);
 export const STOP = new Set(
-  'the and for with this that from have not are you your but was what when then them they into about there please also just like need make sure cho của các những được trong với này một là có không và thì để khi đã sẽ đang lại nữa thôi rồi bạn mình tôi làm nhé nha giúp'.split(' '),
+  'the and for with this that from have not are you your but was what when then them they into about there please also just like need make sure use using should would could can will one two all any more some cho của các những được trong với này một là có không và thì để khi đã sẽ đang lại nữa thôi rồi bạn mình tôi làm nhé nha giúp nên hay hoặc cũng như việc cái đó kia sau trước ngày tuần tháng giờ học dùng xem cần muốn'.split(' '),
 );

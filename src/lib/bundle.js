@@ -35,7 +35,7 @@ export function loadKit(profession) {
   const description = `${skillMeta.description} Profession: ${meta.title}.`;
   return {
     profession: meta,
-    skill: { name: skillMeta.name, description, body: skillBody, raw: `---\nname: ${skillMeta.name}\ndescription: ${description}\n---\n${skillBody}` },
+    skill: { name: skillMeta.name, description, body: skillBody, raw: `---\nname: ${skillMeta.name}\ndescription: ${JSON.stringify(description)}\n---\n${skillBody}` }, // quoted: a plain YAML scalar must not contain ": " (strict parsers such as Pi's reject it)
     rules: parseRules(rulesText).rules,
     hooks: readJson(path.join(hooksDir, 'hooks.json'), []),
     hookFiles: listFiles(hooksDir)

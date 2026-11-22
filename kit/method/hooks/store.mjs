@@ -261,6 +261,7 @@ export function doneTask(droot, desk, id, { proof, sha, force } = {}) {
   if (!proof && !sha && !t.proof && !t.sha) throw new Error(`done needs proof: --proof "<the check that passed>"${t.done ? ` (its check: ${t.done})` : ''}`);
   if (proof) t.proof = String(proof);
   if (sha) t.sha = String(sha).slice(0, 12);
+  delete t.next; // a closed task has no next step
   t.closed = today();
   log(t, 'done', proof ?? (sha ? `sha ${sha}` : 'done'));
   const freed = releaseLeases(desk, t.id);
@@ -497,7 +498,8 @@ export function bumpMatches(desk, { text = '', file = null } = {}) {
       const own = new Set(words(it.text).filter((w) => !STOP.has(w)));
       let n = 0;
       for (const w of own) if (tokens.has(w)) n++;
-      yes = n >= 2 && n >= Math.min(own.size, 3) * 0.6;
+      // ≥2 shared words, and at least half of the shorter side (capped at 6): long texts need more overlap
+      yes = n >= 2 && n >= Math.ceil(0.5 * Math.min(own.size, tokens.size, 6));
     }
     if (yes) {
       if (it.last !== today()) it.uses = (it.uses ?? 0) + 1; // at most once a day: steady diffs, honest counts
@@ -717,7 +719,7 @@ export function surface(droot, desk, { state = null, moves = [], cmd = 'node .ag
   const m = findManifest(droot)?.data;
   const out = [];
   out.push(`[desk] ${m?.profession?.title ?? 'Work'} desk · session ${state?.session ?? '?'} · change it only with \`${cmd} <verb>\` (help: \`${cmd} help\`).`);
-  out.push(desk.goal.length ? `Goal: ${desk.goal.join(' / ')}` : `Goal: not set → infer it from the user's requests, README and git log; \`${cmd} goal "…"\`; mention it in one line.`);
+  out.push(desk.goal.length ? `Goal: ${desk.goal.join(' / ')}` : `Goal: not set → take it from what the user asks for (README and git log are background, not the goal), \`${cmd} goal "…"\`, and say it in one line.`);
   const cur = focus(desk);
   const rd = ready(droot, desk);
   if (cur) out.push(`Now: ${fmt(cur)} · done: ${cur.done ?? '(set it: edit --done)'}${cur.next ? ` · next: ${short(cur.next, 80)}` : ''}`);

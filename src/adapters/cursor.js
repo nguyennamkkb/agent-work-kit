@@ -13,7 +13,7 @@ export default {
       {
         path: path.join(dir, 'rules', 'agentkit-desk.mdc'),
         kind: 'file',
-        content: `---\ndescription: ${kit.skill.description}\nglobs:\nalwaysApply: false\n---\n${kit.skill.body}`,
+        content: `---\ndescription: ${JSON.stringify(kit.skill.description)}\nglobs:\nalwaysApply: false\n---\n${kit.skill.body}`,
       },
     ];
     if (Object.keys(kit.mcp).length) {
