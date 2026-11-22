@@ -12,7 +12,7 @@ Before reporting done, run the project's build + test command and show the summa
 ### IOS-002 · P1
 Find the scheme and simulator once (`xcodebuild -list`, `xcrun simctl list devices available`) and store them as a memory item; reuse it after that.
 - Why: rediscovering build settings wastes the start of every session.
-- Check: memory.md has the build command above the line.
+- Check: a pinned memory holds the build command (`desk remember "…" --pin`).
 
 ### IOS-003 · P1
 Never weaken a check to get green: no disabling tests, `// swiftlint:disable`, or lowering warning levels without an approved proposal.

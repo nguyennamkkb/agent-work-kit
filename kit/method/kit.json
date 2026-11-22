@@ -2,5 +2,5 @@
   "permissions": {
     "ask": ["Bash(git push:*)", "Bash(git reset --hard:*)", "Bash(git clean:*)", "Bash(rm -rf:*)", "Bash(npm publish:*)"]
   },
-  "checks": [{ "cmd": "git", "required": true, "hint": "commits are the desk's checkpoints" }]
+  "checks": [{ "cmd": "git", "required": false, "hint": "recommended: commits are the desk's checkpoints, and team mode needs it" }]
 }

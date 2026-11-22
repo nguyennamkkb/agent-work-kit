@@ -2,7 +2,7 @@
 - **Task** = one screen, one flow state, or one component (with its variants) brought to a reviewable state.
 - **Done** = only library components and variables/tokens used, layers named per DES-004, all required states present, audit (DES-006) has no blocking issues.
 - **Priority hints:** broken or inconsistent shipped flows P0 · goal screens P1 · component cleanup P2 · explorations P3.
-- **Memory worth keeping:** library file link, token naming, grid/breakpoints, platform guidelines followed, frame links of every screen in progress (`ref:`).
+- **Memory worth keeping:** library file link, token naming, grid/breakpoints, platform guidelines followed, frame links of every screen in progress (`--ref` on its task).
 
 ### DES-001 · P0
 Read designs through the Figma MCP tools; never guess sizes, colors, copy or tokens. If MCP is not connected, say so and ask for a frame link.
@@ -10,7 +10,7 @@ Read designs through the Figma MCP tools; never guess sizes, colors, copy or tok
 - Check: every value you report comes from an MCP call in this session.
 
 ### DES-002 · P1
-Use instances of library components and change them through variants/properties; never detach. A missing component is an inbox item ("needs component X"), not a local one-off.
+Use instances of library components and change them through variants/properties; never detach. A missing component is a new task (`desk add P2 "needs component X"`), not a local one-off.
 - Why: detached copies stop receiving library updates.
 - Check: audit finds no detached instances.
 

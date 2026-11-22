@@ -1,0 +1,8 @@
+{
+  "name": "universal",
+  "title": "Universal",
+  "version": "1.0.0",
+  "description": "Any work, even in a field the user does not know: research, writing, planning, analysis, learning, code — done the professional way",
+  "checks": [],
+  "team": { "build": "", "test": { "command": "", "exclusive": "", "scope": "" }, "leadFiles": [], "notes": [] }
+}

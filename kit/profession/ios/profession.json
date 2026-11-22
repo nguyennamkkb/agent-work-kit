@@ -1,7 +1,7 @@
 {
   "name": "ios",
   "title": "iOS",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "iOS / Swift app development (SwiftUI, Swift Concurrency, Xcode)",
   "checks": [
     {

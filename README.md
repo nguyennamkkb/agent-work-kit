@@ -21,7 +21,23 @@ Mỗi dự án có **một cái bàn làm việc** (`.desk/`) cho **một nghề
 ```bash
 npx github:nguyennamkkb/agent-work-kit init --ios        # bàn cho iOS developer
 npx github:nguyennamkkb/agent-work-kit init --designer   # bàn cho product designer (Figma)
+npx github:nguyennamkkb/agent-work-kit init --universal  # bàn cho mọi việc, kể cả lĩnh vực bạn chưa biết
 ```
+
+**Không biết chọn nghề nào thì chọn `--universal`.** Gói này dành cho mọi loại việc: nghiên cứu, viết, lập kế hoạch, phân tích, học một thứ mới, làm hồ sơ, hay viết code. Agent làm theo các phương pháp làm việc chuyên nghiệp:
+
+| Phương pháp | Agent làm gì cho bạn |
+|---|---|
+| Định nghĩa "xong" (SMART, Definition of Done) | trước khi làm, nói rõ sẽ có gì, cho ai, với giới hạn nào, và kiểm bằng cách nào |
+| Nghiên cứu có nguồn | lĩnh vực lạ thì tìm cách làm chuẩn trước; dữ kiện quan trọng phải có ít nhất 2 nguồn; không bịa số liệu hay trích dẫn |
+| Chia việc không chồng chéo, không sót (MECE) | chia thành các bước kiểm được; bước rủi ro nhất làm thử trước |
+| Ma trận lựa chọn | khi phải chọn: đưa 2–3 phương án kèm lợi, hại, chi phí, rồi khuyên một phương án và giải thích vì sao |
+| Pre-mortem | trước việc khó quay lại (tiền, pháp lý, sức khoẻ, gửi đi, xoá): liệt kê điều có thể hỏng, có bản dự phòng, hỏi bạn trước; nói rõ lúc nào cần chuyên gia có chứng chỉ |
+| PDCA, chỉ xong khi có bằng chứng | kiểm từng bước theo tiêu chí, và chỉ báo xong khi đưa ra được bằng chứng |
+| Mẫu chuẩn của từng nghề | báo cáo thì kết luận trước (pyramid principle); kế hoạch thì có mốc, người làm, rủi ro; email thì nói rõ cần gì, bối cảnh, bước tiếp theo… |
+| Dạy trong lúc làm (BLUF) | trả lời trước rồi mới giải thích; giải thích thuật ngữ mới và ghi nhớ cho bạn; chỉ cho bạn những gì nên tự kiểm |
+| Làm bản nhỏ trước | đưa bản nháp hoặc dàn ý sớm để bạn góp ý, rồi mới hoàn thiện |
+| After-action review | xong việc thì rút ra một bài học để lần sau làm tốt hơn |
 
 Kit tự nhận ra harness bạn đang dùng (Claude Code, Codex, OpenCode, Pi, Oh My Pi, Cursor). Nếu không thấy harness nào, kit cài cho Claude Code.
 
@@ -317,7 +333,7 @@ Xong là cờ `--backend` tự có. Mỗi lần sửa luật, tăng `version` đ
 ## Phát triển
 
 ```bash
-npm test                       # 47 test: engine, bàn, hook, đội (với Orca giả), từng harness, CLI
+npm test                       # 48 test: engine, bàn, hook, đội (với Orca giả), từng harness, CLI
 UPDATE_SNAPSHOTS=1 npm test    # khi cố ý đổi output của adapter
 node bin/cli.js init --ios -y --dir /tmp/demo
 ```
@@ -328,7 +344,7 @@ src/commands/         init, switch, update, desk, review, doctor, remove, list
 src/lib/              engine (ghi file, manifest, so luật theo ID, chuyển bàn v1), marker, merge JSON, tự dọn cache
 src/adapters/         một adapter cho mỗi harness
 kit/method/           SKILL.md, docs/team.md, desk.mjs, hooks/ (_lib, store, team, cli, 5 hook, dashboard), bridge/, desk/ (mẫu)
-kit/profession/       gói nghề: ios, designer
+kit/profession/       gói nghề: ios, designer, universal
 test/                 kit, desk, team, harness; fixtures/fake-orca.mjs
 ```
 

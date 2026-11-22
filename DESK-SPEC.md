@@ -4,10 +4,10 @@
 
 ## 1. Cài đặt
 
-- `npx github:nguyennamkkb/agent-work-kit init --<nghề>`: mỗi dự án một bàn, mỗi bàn một nghề. Nghề có sẵn: `--ios`, `--designer`.
+- `npx github:nguyennamkkb/agent-work-kit init --<nghề>`: mỗi dự án một bàn, mỗi bàn một nghề. Nghề có sẵn: `--ios`, `--designer`, `--universal` (mọi việc, theo phương pháp chuyên nghiệp: UNI-001…010).
 - Harness được tự phát hiện, hoặc chọn bằng cờ `--claude --codex --opencode --pi --omp --cursor`.
 - Kit chỉ ghi vào thư mục dự án. Chạy qua `npx` thì kit tự dọn cache của chính nó.
-- Không cài global. Không dependency. Chỉ cần Node ≥ 18; thêm `git`, và `orca` nếu làm theo đội.
+- Không cài global. Không dependency. Chỉ cần Node ≥ 18. `git` nên có (commit là các mốc của bàn), và bắt buộc khi làm theo đội, cùng với `orca`.
 
 ## 2. Dữ liệu bàn
 
