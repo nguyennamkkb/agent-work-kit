@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import path from 'node:path';
-import { readStdinJson, projectDir, deskRoot, bumpSession, readState, writeState, git, read, findManifest } from './_lib.mjs';
+import { readStdinJson, projectDir, deskRoot, bumpSession, readState, writeState, git, read, findManifest, emitContext } from './_lib.mjs';
 import { hasDesk, load, mutate, autoSort, compact, surface } from './store.mjs';
 import { workerContext } from './team.mjs';
 
@@ -10,7 +10,7 @@ const droot = deskRoot(checkout);
 if (!hasDesk(droot)) process.exit(0);
 const worker = workerContext(droot, checkout);
 if (worker) {
-  process.stdout.write(worker + '\n');
+  emitContext('SessionStart', worker);
   process.exit(0);
 }
 const prev = readState(droot);
@@ -35,4 +35,4 @@ if (startup) {
   const body = rel && (read(path.join(checkout, rel)) ?? '').replace(/^---\n[\s\S]*?\n---\n/, '').trim();
   if (body) out += `\n\n<desk-skill source="${rel}">\nThis is your working method for this project, already loaded — follow it; no need to open the file.\n\n${body}\n</desk-skill>`;
 }
-process.stdout.write(out + '\n');
+emitContext('SessionStart', out);

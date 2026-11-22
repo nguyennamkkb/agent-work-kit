@@ -20,9 +20,10 @@ if [ "${KIT:-github}" = local ]; then node "$REPO/bin/cli.js" init --universal "
 else (cd /tmp && AGENTKIT_KEEP_CACHE=1 npx -y github:nguyennamkkb/agent-work-kit init --universal "--$H" -y --dir "$D" | tail -1); fi
 
 case "$H" in
-  pi) CAND="pi:$MODEL@high" ;;
-  omp) CAND="omp:$MODEL@high" ;;
+  pi) CAND="pi:$MODEL@${EFFORT:-high}" ;;
+  omp) CAND="omp:$MODEL@${EFFORT:-high}" ;;
   opencode) CAND="opencode:$MODEL" ;;
+  codex) CAND="codex:$MODEL@${EFFORT:-low}" ;;
   claude) CAND="claude" ;;
   *) echo "unknown harness $H"; exit 1 ;;
 esac

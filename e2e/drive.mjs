@@ -36,12 +36,18 @@ function orca(args) {
 const terminals = () => orca(['terminal', 'list', '--worktree', `path:${D}`]).result?.terminals ?? [];
 const screen = (h) => (orca(['terminal', 'read', '--terminal', h, '--screen']).result?.terminal?.tail ?? []).join('\n');
 const ASK = /╭─ Ask|enter submit|enter confirm|↑↓ select/;
-const TRUST = /Trust project folder\?/;
+const TRUST = /Trust project folder\?|Hooks need review/;
 let trusts = 0;
 
 let asked = 0;
 function trustOnce(h) {
   trusts++;
+  if (/Hooks need review/.test(screen(h))) {
+    log('codex asks to review the project hooks; choosing "Trust all and continue"');
+    for (const k of ['\x1b[B', '\r']) spawnSync(ORCA, ['terminal', 'send', '--terminal', h, '--text', k, '--json']), sleep(500);
+    sleep(5000);
+    return;
+  }
   log('harness asks to trust the project folder; choosing "this session only"');
   for (const k of ['\x1b[B', '\x1b[B', '\r']) spawnSync(ORCA, ['terminal', 'send', '--terminal', h, '--text', k, '--json']), sleep(500);
   sleep(15000);
@@ -68,7 +74,7 @@ function settle(h, firstWaitMs = 20000) {
 function launch(prompt) {
   const before = new Set(terminals().map((t) => t.handle));
   const args = ['agent', 'launch', '--agent', H, '--model', MODEL, '--worktree', `path:${D}`, '--surface', 'terminal', '--prompt', prompt];
-  if (H !== 'opencode') args.push('--effort', 'high');
+  if (H !== 'opencode') args.push('--effort', process.env.EFFORT || 'high');
   const r = orca(args);
   if (!r.ok) throw new Error(`launch failed: ${JSON.stringify(r.error ?? r.raw).slice(0, 300)}`);
   for (let i = 0; i < 20; i++) {

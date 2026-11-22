@@ -183,7 +183,9 @@ test('capture: remember and corrections are filed by the hook; urgent lifts the 
 test('session-start: counts sessions, shows a short surface; a worker sees only its own task', () => {
   const root = install();
   desk(root, 'add', 'P1', 'Login screen', '--now', '--done', 'tests');
-  const out = hook(root, 'session-start.mjs', { source: 'startup' }).stdout;
+  const raw = JSON.parse(hook(root, 'session-start.mjs', { source: 'startup' }).stdout);
+  assert.equal(raw.hookSpecificOutput.hookEventName, 'SessionStart', 'JSON context: Codex rejects plain text that starts with "["');
+  const out = raw.hookSpecificOutput.additionalContext;
   assert.match(out, /iOS desk · session 1/);
   assert.match(out, /Now: Q-1 P1 Login screen · done: tests/);
   const surfacePart = out.split('<desk-skill')[0];
