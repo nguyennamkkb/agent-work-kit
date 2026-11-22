@@ -44,19 +44,14 @@
     }
   },
   "harnesses": [
-    "claude",
-    "codex",
-    "opencode",
-    "pi",
-    "omp",
-    "cursor"
+    "opencode"
   ],
-  "installedAt": "2026-11-22T03:09:18.079Z",
-  "updatedAt": "2026-11-22T04:31:59.453Z",
+  "installedAt": "2026-11-22T04:38:04.665Z",
+  "updatedAt": "2026-11-22T04:38:04.665Z",
   "files": {
     "AGENTS.md": {
       "kind": "block",
-      "hash": "a23936fb6a2bb06b"
+      "hash": "feb7e219c8ed6780"
     },
     ".agentkit/hooks/_lib.mjs": {
       "kind": "file",
@@ -82,170 +77,13 @@
       "kind": "file",
       "hash": "9b848eff23c4723b"
     },
-    "CLAUDE.md": {
-      "kind": "block",
-      "hash": "c5adcca117414c17"
-    },
-    ".claude/skills/desk/SKILL.md": {
-      "kind": "file",
-      "hash": "631c443106957e4a"
-    },
-    ".claude/settings.json": {
-      "kind": "json",
-      "patch": {
-        "hooks": {
-          "SessionStart": [
-            {
-              "hooks": [
-                {
-                  "type": "command",
-                  "command": "node \"$CLAUDE_PROJECT_DIR/.agentkit/hooks/session-start.mjs\"",
-                  "timeout": 10
-                }
-              ]
-            }
-          ],
-          "UserPromptSubmit": [
-            {
-              "hooks": [
-                {
-                  "type": "command",
-                  "command": "node \"$CLAUDE_PROJECT_DIR/.agentkit/hooks/capture.mjs\"",
-                  "timeout": 10
-                }
-              ]
-            }
-          ],
-          "PreToolUse": [
-            {
-              "matcher": "Edit|Write|MultiEdit|NotebookEdit",
-              "hooks": [
-                {
-                  "type": "command",
-                  "command": "node \"$CLAUDE_PROJECT_DIR/.agentkit/hooks/guard.mjs\"",
-                  "timeout": 10
-                }
-              ]
-            }
-          ],
-          "PostToolUse": [
-            {
-              "matcher": "Edit|Write|MultiEdit|NotebookEdit",
-              "hooks": [
-                {
-                  "type": "command",
-                  "command": "node \"$CLAUDE_PROJECT_DIR/.agentkit/hooks/desk-check.mjs\"",
-                  "timeout": 10
-                }
-              ]
-            }
-          ],
-          "Stop": [
-            {
-              "hooks": [
-                {
-                  "type": "command",
-                  "command": "node \"$CLAUDE_PROJECT_DIR/.agentkit/hooks/stop-check.mjs\"",
-                  "timeout": 10
-                }
-              ]
-            }
-          ]
-        },
-        "permissions": {
-          "ask": [
-            "Bash(git push:*)",
-            "Bash(git reset --hard:*)",
-            "Bash(git clean:*)",
-            "Bash(rm -rf:*)",
-            "Bash(npm publish:*)"
-          ]
-        }
-      }
-    },
     ".agents/skills/desk/SKILL.md": {
       "kind": "file",
       "hash": "631c443106957e4a"
     },
-    ".codex/hooks.json": {
-      "kind": "json",
-      "patch": {
-        "hooks": {
-          "SessionStart": [
-            {
-              "hooks": [
-                {
-                  "type": "command",
-                  "command": "d=\"$PWD\"; while [ \"$d\" != / ] && [ ! -f \"$d/.agentkit.json\" ]; do d=$(dirname \"$d\"); done; node \"$d/.agentkit/hooks/session-start.mjs\"",
-                  "timeout": 10
-                }
-              ]
-            }
-          ],
-          "UserPromptSubmit": [
-            {
-              "hooks": [
-                {
-                  "type": "command",
-                  "command": "d=\"$PWD\"; while [ \"$d\" != / ] && [ ! -f \"$d/.agentkit.json\" ]; do d=$(dirname \"$d\"); done; node \"$d/.agentkit/hooks/capture.mjs\"",
-                  "timeout": 10
-                }
-              ]
-            }
-          ],
-          "PreToolUse": [
-            {
-              "matcher": "apply_patch|Edit|Write",
-              "hooks": [
-                {
-                  "type": "command",
-                  "command": "d=\"$PWD\"; while [ \"$d\" != / ] && [ ! -f \"$d/.agentkit.json\" ]; do d=$(dirname \"$d\"); done; node \"$d/.agentkit/hooks/guard.mjs\"",
-                  "timeout": 10
-                }
-              ]
-            }
-          ],
-          "PostToolUse": [
-            {
-              "matcher": "apply_patch|Edit|Write",
-              "hooks": [
-                {
-                  "type": "command",
-                  "command": "d=\"$PWD\"; while [ \"$d\" != / ] && [ ! -f \"$d/.agentkit.json\" ]; do d=$(dirname \"$d\"); done; node \"$d/.agentkit/hooks/desk-check.mjs\"",
-                  "timeout": 10
-                }
-              ]
-            }
-          ],
-          "Stop": [
-            {
-              "hooks": [
-                {
-                  "type": "command",
-                  "command": "d=\"$PWD\"; while [ \"$d\" != / ] && [ ! -f \"$d/.agentkit.json\" ]; do d=$(dirname \"$d\"); done; node \"$d/.agentkit/hooks/stop-check.mjs\"",
-                  "timeout": 10
-                }
-              ]
-            }
-          ]
-        }
-      }
-    },
     ".opencode/plugins/agentkit-desk/index.js": {
       "kind": "file",
       "hash": "a90e52690feabc8f"
-    },
-    ".pi/extensions/agentkit-desk.js": {
-      "kind": "file",
-      "hash": "f3be76fb4eff84ef"
-    },
-    ".omp/extensions/agentkit-desk.js": {
-      "kind": "file",
-      "hash": "f3be76fb4eff84ef"
-    },
-    ".cursor/rules/agentkit-desk.mdc": {
-      "kind": "file",
-      "hash": "01f0240b938de336"
     }
   }
 }

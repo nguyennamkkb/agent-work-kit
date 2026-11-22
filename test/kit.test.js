@@ -11,7 +11,7 @@ import { applyPatch, revertPatch } from '../src/lib/jsonmerge.js';
 import { upsertBlock, removeBlock, extractBlock } from '../src/lib/markers.js';
 import { parseArgs, pickFlags } from '../src/cli.js';
 import { lintDesk, lintFile, parseItems, parseRules, listReview } from '../kit/method/hooks/_lib.mjs';
-import { selfClean } from '../src/lib/selfclean.js';
+import { selfClean, cleanCacache } from '../src/lib/selfclean.js';
 const listReviewPending = (root) => listReview(root).filter((r) => !r.archived && r.status === 'pending').length;
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -362,12 +362,27 @@ test('self-clean: removes only its own npx folder, and only when run from the np
   const other = path.join(tmp, '.npm', '_npx', 'other99');
   fs.mkdirSync(pkg, { recursive: true });
   fs.mkdirSync(other, { recursive: true });
-  const env = { PATH: '' }; // no npm on PATH: the cache-key step is skipped, the folder step still runs
+  const env = {};
   assert.deepEqual(selfClean({ root: path.join(tmp, 'clone'), env }), []); // a git clone is never touched
   assert.deepEqual(selfClean({ root: pkg, env: { ...env, AGENTKIT_KEEP_CACHE: '1' } }), []);
   assert.ok(fs.existsSync(pkg));
   selfClean({ root: pkg, env });
   assert.ok(!fs.existsSync(path.join(tmp, '.npm', '_npx', 'abc123')));
   assert.ok(fs.existsSync(other), 'other npx entries stay');
+  fs.rmSync(tmp, { recursive: true, force: true });
+});
+
+test('self-clean: drops only cacache buckets and blobs that belong to the kit', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ak-cacache-'));
+  const c = path.join(tmp, '_cacache');
+  const blob = (b) => { const hex = Buffer.from(b, 'base64').toString('hex'); const p = path.join(c, 'content-v2', 'sha512', hex.slice(0, 2), hex.slice(2, 4), hex.slice(4)); fs.mkdirSync(path.dirname(p), { recursive: true }); fs.writeFileSync(p, 'x'); return p; };
+  const bucket = (name, entries) => { const p = path.join(c, 'index-v5', 'aa', 'bb', name); fs.mkdirSync(path.dirname(p), { recursive: true }); fs.writeFileSync(p, entries.map((e) => '\nhash\t' + JSON.stringify(e)).join('')); return p; };
+  const oursBlob = blob('b3Vycw==');
+  const otherBlob = blob('b3RoZXI=');
+  const ours = bucket('k1', [{ key: 'pacote:tarball:github:me/agent-work-kit#abc', integrity: 'sha512-b3Vycw==' }, { key: 'pacote:tarball:github:me/agent-work-kit#abc', integrity: null }]);
+  const other = bucket('k2', [{ key: 'pacote:tarball:left-pad', integrity: 'sha512-b3RoZXI=' }]);
+  assert.deepEqual(cleanCacache(tmp), ['pacote:tarball:github:me/agent-work-kit#abc']);
+  assert.ok(!fs.existsSync(ours) && !fs.existsSync(oursBlob));
+  assert.ok(fs.existsSync(other) && fs.existsSync(otherBlob));
   fs.rmSync(tmp, { recursive: true, force: true });
 });

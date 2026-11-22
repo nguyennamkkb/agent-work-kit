@@ -1,7 +1,50 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { spawnSync } from 'node:child_process';
 import { PKG_ROOT } from './util.js';
+
+const OURS = /agent-work-kit/;
+
+const walk = (d) => {
+  try {
+    return fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(path.join(d, e.name)) : [path.join(d, e.name)]));
+  } catch {
+    return [];
+  }
+};
+
+/**
+ * Remove this kit's entries from npm's download cache (`_cacache`): the index bucket files whose every entry
+ * is ours, and the content blobs they point to. Buckets shared with any other key are left untouched.
+ * (`npm cache clean <key>` leaves tombstones that make the next npx run report a corrupted tarball.)
+ */
+export function cleanCacache(cacheDir) {
+  const removed = [];
+  const cacache = path.join(cacheDir, '_cacache');
+  for (const f of walk(path.join(cacache, 'index-v5'))) {
+    let entries;
+    try {
+      entries = fs
+        .readFileSync(f, 'utf8')
+        .split('\n')
+        .filter(Boolean)
+        .map((l) => JSON.parse(l.slice(l.indexOf('\t') + 1)));
+    } catch {
+      continue;
+    }
+    if (!entries.length || !entries.every((e) => OURS.test(e.key ?? ''))) continue;
+    for (const e of entries) {
+      if (!e.integrity) continue;
+      for (const one of e.integrity.split(/\s+/)) {
+        const dash = one.indexOf('-');
+        const hex = Buffer.from(one.slice(dash + 1), 'base64').toString('hex');
+        if (hex.length > 4) fs.rmSync(path.join(cacache, 'content-v2', one.slice(0, dash), hex.slice(0, 2), hex.slice(2, 4), hex.slice(4)), { force: true });
+      }
+    }
+    fs.rmSync(f, { force: true });
+    removed.push(entries[0].key);
+  }
+  return removed;
+}
 
 /**
  * When run through `npx`, the kit lives in `<npm cache>/_npx/<hash>/node_modules/agent-work-kit`.
@@ -16,26 +59,12 @@ export function selfClean({ root = PKG_ROOT, env = process.env } = {}) {
   const i = parts.lastIndexOf('_npx');
   if (i < 1 || parts[i + 2] !== 'node_modules') return removed;
   const npxDir = parts.slice(0, i + 2).join(path.sep);
-  const cacheDir = parts.slice(0, i).join(path.sep);
   try {
     fs.rmSync(npxDir, { recursive: true, force: true });
     removed.push(npxDir);
+    removed.push(...cleanCacache(parts.slice(0, i).join(path.sep)));
   } catch {
     /* best effort */
-  }
-  // Downloaded tarball entries for this kit only (keys name the package or its GitHub repo).
-  const npm = (args) =>
-    spawnSync(process.platform === 'win32' ? 'npm.cmd' : 'npm', [...args, '--cache', cacheDir], {
-      encoding: 'utf8',
-      shell: process.platform === 'win32',
-      timeout: 20000,
-    });
-  try {
-    const ls = npm(['cache', 'ls']);
-    const keys = (ls.stdout || '').split('\n').map((s) => s.trim()).filter((k) => /agent-work-kit/.test(k));
-    if (keys.length && npm(['cache', 'clean', ...keys]).status === 0) removed.push(...keys);
-  } catch {
-    /* npm not reachable; the npx folder is already gone */
   }
   return removed;
 }
