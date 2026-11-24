@@ -36,13 +36,20 @@ function orca(args) {
 const terminals = () => orca(['terminal', 'list', '--worktree', `path:${D}`]).result?.terminals ?? [];
 const screen = (h) => (orca(['terminal', 'read', '--terminal', h, '--screen']).result?.terminal?.tail ?? []).join('\n');
 const ASK = /╭─ Ask|enter submit|enter confirm|↑↓ select/;
-const TRUST = /Trust project folder\?|Hooks need review/;
+const TRUST = /Trust project folder\?|Hooks need review|t trust all/;
 let trusts = 0;
 
 let asked = 0;
 function trustOnce(h) {
   trusts++;
-  if (/Hooks need review/.test(screen(h))) {
+  const scr = screen(h);
+  if (/t trust all/.test(scr)) {
+    log('codex shows its hooks review page; trusting all and closing it');
+    for (const k of ['t', '\x1b']) spawnSync(ORCA, ['terminal', 'send', '--terminal', h, '--text', k, '--json']), sleep(1000);
+    sleep(3000);
+    return;
+  }
+  if (/Hooks need review/.test(scr)) {
     log('codex asks to review the project hooks; choosing "Trust all and continue"');
     for (const k of ['\x1b[B', '\r']) spawnSync(ORCA, ['terminal', 'send', '--terminal', h, '--text', k, '--json']), sleep(500);
     sleep(5000);
@@ -56,7 +63,13 @@ const asks = [];
 function settle(h, firstWaitMs = 20000) {
   sleep(firstWaitMs);
   for (let i = 0; i < 8; i++) {
-    if (!TRUST.test(screen(h)) && !ASK.test(screen(h))) orca(['terminal', 'wait', '--terminal', h, '--for', 'tui-idle', '--timeout-ms', '600000']);
+    // A trust dialog never reads as idle: wait in short steps and look at the screen between them.
+    for (let k = 0; k < 40; k++) {
+      const cur = screen(h);
+      if (TRUST.test(cur) || ASK.test(cur)) break;
+      const w = orca(['terminal', 'wait', '--terminal', h, '--for', 'tui-idle', '--timeout-ms', '15000']);
+      if (w.ok || w.error?.code === 'terminal_exited') break;
+    }
     const scr = screen(h);
     if (TRUST.test(scr)) {
       trustOnce(h);
@@ -134,6 +147,8 @@ if (scn.mode === 'solo') {
       log('timeout');
       break;
     }
+    // Workers start in their own worktree, where the harness asks to trust the hooks again.
+    for (const t of orca(['terminal', 'list']).result?.terminals ?? []) if (t.handle !== lead && (t.worktreePath ?? '').includes(path.basename(D)) && TRUST.test(screen(t.handle))) trustOnce(t.handle);
     const scr = screen(lead);
     if (TRUST.test(scr)) trustOnce(lead);
     else if (ASK.test(scr)) {
