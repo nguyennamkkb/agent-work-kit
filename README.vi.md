@@ -172,4 +172,4 @@ Việc nhận ra lời gấp, lời sửa và lời đồng ý dựa trên từ 
 
 ## Giấy phép
 
-MIT, khai báo trong `package.json`.
+[MIT](LICENSE)

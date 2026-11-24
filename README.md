@@ -172,4 +172,4 @@ Detecting urgency, corrections and approvals relies on keywords, so it can miss 
 
 ## License
 
-MIT, as declared in `package.json`.
+[MIT](LICENSE)
