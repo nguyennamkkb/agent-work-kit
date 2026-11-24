@@ -1,0 +1,770 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Agent Work Kit — Cái bàn cho mọi việc của agent</title>
+<meta name="description" content="Hướng dẫn cài và dùng Agent Work Kit: một cái bàn làm việc cho agent trong mỗi dự án.">
+<meta name="theme-color" content="#050505">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap">
+<style>
+:root {
+  --bg: #050505;
+  --core: #0c0e0d;
+  --core-2: #111413;
+  --ink: #f1f4f2;
+  --ink-2: rgba(241, 244, 242, 0.66);
+  --muted: rgba(241, 244, 242, 0.42);
+  --hair: rgba(255, 255, 255, 0.07);
+  --hair-2: rgba(255, 255, 255, 0.12);
+  --accent: #3ddbb0;
+  --accent-ink: #8af0d3;
+  --accent-soft: rgba(61, 219, 176, 0.1);
+  --warm: #ecc77c;
+  --warm-soft: rgba(236, 199, 124, 0.1);
+  --spring: cubic-bezier(0.32, 0.72, 0, 1);
+  --font: "Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --r-shell: 2rem;
+  --pad-shell: 6px;
+  --r-core: calc(var(--r-shell) - var(--pad-shell));
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { scroll-padding-top: 110px; scroll-behavior: smooth; -webkit-text-size-adjust: 100%; background: var(--bg); }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font-family: var(--font); font-size: 16px; font-weight: 400; line-height: 1.7;
+  -webkit-font-smoothing: antialiased; overflow-x: hidden;
+}
+/* Fixed mesh orbs + grain: never on scrolling layers */
+body::before {
+  content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background:
+    radial-gradient(42vw 42vw at 88% -6%, rgba(61, 219, 176, 0.13), transparent 62%),
+    radial-gradient(36vw 36vw at -8% 38%, rgba(56, 120, 255, 0.07), transparent 62%),
+    radial-gradient(40vw 30vw at 60% 110%, rgba(61, 219, 176, 0.07), transparent 65%);
+}
+body::after {
+  content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: 0.04;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+main, .footer { position: relative; z-index: 1; }
+::selection { background: var(--accent); color: #04140f; }
+:focus-visible { outline: 1.5px solid var(--accent); outline-offset: 4px; border-radius: 10px; }
+a { color: var(--accent-ink); text-decoration-color: rgba(138, 240, 211, 0.35); text-underline-offset: 4px; transition: text-decoration-color 0.5s var(--spring); }
+a:hover { text-decoration-color: currentColor; }
+strong { font-weight: 600; color: var(--ink); }
+code {
+  font-family: var(--mono); font-size: 0.82em;
+  background: rgba(255, 255, 255, 0.05); color: var(--accent-ink);
+  padding: 0.14em 0.5em; border-radius: 7px; box-shadow: inset 0 0 0 1px var(--hair);
+  overflow-wrap: anywhere;
+}
+p { margin: 0 0 1rem; }
+p:last-child { margin-bottom: 0; }
+.wrap { position: relative; width: 100%; max-width: 1220px; margin-inline: auto; padding-inline: clamp(16px, 4vw, 48px); }
+.skip { position: fixed; left: 16px; top: -80px; z-index: 300; background: var(--ink); color: var(--bg); padding: 10px 18px; border-radius: 999px; text-decoration: none; font-weight: 600; transition: transform 0.6s var(--spring); }
+.skip:focus { transform: translateY(100px); }
+
+/* ---------- Double-bezel ---------- */
+.shell {
+  position: relative; padding: var(--pad-shell); border-radius: var(--r-shell);
+  background: rgba(255, 255, 255, 0.025);
+  box-shadow: inset 0 0 0 1px var(--hair);
+  transition: transform 0.8s var(--spring), box-shadow 0.8s var(--spring);
+}
+.core {
+  position: relative; height: 100%; border-radius: var(--r-core); overflow: hidden;
+  background: linear-gradient(180deg, var(--core-2), var(--core) 60%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), inset 0 0 0 1px rgba(255, 255, 255, 0.035);
+  padding: clamp(22px, 2.6vw, 34px);
+}
+.core::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none; opacity: 0;
+  background: radial-gradient(420px circle at var(--mx, 50%) var(--my, 0%), rgba(61, 219, 176, 0.09), transparent 45%);
+  transition: opacity 0.8s var(--spring);
+}
+.lift:hover { transform: translateY(-4px); box-shadow: inset 0 0 0 1px var(--hair-2), 0 40px 80px -40px rgba(61, 219, 176, 0.25); }
+.lift:hover .core::before { opacity: 1; }
+.core > * { position: relative; }
+
+/* ---------- Eyebrow ---------- */
+.eyebrow {
+  display: inline-flex; align-items: center; gap: 10px; margin: 0 0 26px;
+  padding: 6px 14px 6px 8px; border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04); box-shadow: inset 0 0 0 1px var(--hair);
+  font-size: 10.5px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink-2);
+}
+.eyebrow b { font-family: var(--mono); font-weight: 600; letter-spacing: 0.04em; color: var(--accent-ink); background: var(--accent-soft); padding: 2px 9px; border-radius: 999px; }
+
+/* ---------- Buttons (button-in-button) ---------- */
+.btn {
+  display: inline-flex; align-items: center; gap: 16px;
+  padding: 6px 6px 6px 26px; border-radius: 999px;
+  font: inherit; font-weight: 600; font-size: 0.96rem; text-decoration: none; cursor: pointer;
+  transition: transform 0.7s var(--spring), background 0.7s var(--spring), box-shadow 0.7s var(--spring);
+}
+.btn .ic { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; flex: 0 0 auto; transition: transform 0.7s var(--spring), background 0.7s var(--spring); }
+.btn:hover .ic { transform: translate(3px, -1px) scale(1.05); }
+.btn:active { transform: scale(0.98); }
+.btn-primary { background: var(--ink); color: #050505; box-shadow: 0 0 0 1px rgba(255,255,255,0.2), 0 20px 50px -20px rgba(61, 219, 176, 0.55); }
+.btn-primary .ic { background: #050505; color: var(--accent); }
+.btn-primary:hover { box-shadow: 0 0 0 1px rgba(255,255,255,0.3), 0 26px 60px -20px rgba(61, 219, 176, 0.7); }
+.btn-ghost { background: rgba(255, 255, 255, 0.04); color: var(--ink); box-shadow: inset 0 0 0 1px var(--hair-2); }
+.btn-ghost .ic { background: rgba(255, 255, 255, 0.07); }
+.btn-ghost:hover { background: rgba(255, 255, 255, 0.07); }
+.btn-ghost:hover .ic { transform: translateY(2px) scale(1.05); }
+
+/* ---------- Fluid island nav ---------- */
+.island { position: fixed; top: 20px; left: 0; right: 0; z-index: 100; display: flex; justify-content: center; padding-inline: 16px; pointer-events: none; }
+.island-inner {
+  pointer-events: auto; display: flex; align-items: center; gap: 4px; width: max-content; max-width: 100%;
+  padding: 6px; border-radius: 999px;
+  background: rgba(12, 14, 13, 0.62);
+  -webkit-backdrop-filter: blur(24px) saturate(1.5); backdrop-filter: blur(24px) saturate(1.5);
+  box-shadow: inset 0 0 0 1px var(--hair-2), inset 0 1px 0 rgba(255,255,255,0.06), 0 20px 50px -20px rgba(0, 0, 0, 0.8);
+}
+.brand { display: inline-flex; align-items: center; gap: 10px; padding: 4px 14px 4px 4px; color: var(--ink); text-decoration: none; font-weight: 700; font-size: 0.94rem; letter-spacing: -0.01em; white-space: nowrap; }
+.brand-mark { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: radial-gradient(circle at 30% 25%, #6ff0cc, #0e8c6c 70%); color: #03140f; box-shadow: inset 0 1px 1px rgba(255,255,255,0.5), 0 0 24px -4px rgba(61, 219, 176, 0.6); }
+.brand-ver { font-family: var(--mono); font-size: 0.66rem; font-weight: 500; color: var(--muted); }
+.nav-links { display: flex; align-items: center; gap: 2px; }
+.nav-links a { position: relative; color: var(--ink-2); text-decoration: none; font-weight: 500; font-size: 0.86rem; padding: 9px 14px; border-radius: 999px; transition: color 0.6s var(--spring), background 0.6s var(--spring); }
+.nav-links a:hover { color: var(--ink); background: rgba(255, 255, 255, 0.05); }
+.nav-links a.active { color: var(--ink); background: rgba(255, 255, 255, 0.08); }
+.nav-cta { display: inline-flex; align-items: center; gap: 10px; margin-left: 6px; padding: 4px 4px 4px 16px; border-radius: 999px; background: var(--ink); color: #050505 !important; text-decoration: none; font-weight: 600; font-size: 0.86rem; white-space: nowrap; transition: transform 0.6s var(--spring); }
+.nav-cta .ic { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: #050505; color: var(--accent); transition: transform 0.6s var(--spring); }
+.nav-cta:hover .ic { transform: translate(2px, -1px) scale(1.05); }
+.nav-cta:active { transform: scale(0.98); }
+.burger { display: none; }
+.sheet {
+  position: fixed; inset: 0; z-index: 90; display: grid; place-items: center;
+  background: rgba(5, 5, 5, 0.82); -webkit-backdrop-filter: blur(40px); backdrop-filter: blur(40px);
+  opacity: 0; visibility: hidden; transition: opacity 0.7s var(--spring), visibility 0s 0.7s;
+}
+.sheet.open { opacity: 1; visibility: visible; transition: opacity 0.7s var(--spring); }
+.sheet nav { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.sheet .mask { display: block; overflow: hidden; padding: 2px 6px; }
+.sheet nav a { display: block; color: var(--ink); text-decoration: none; font-weight: 700; letter-spacing: -0.035em; font-size: clamp(2rem, 9vw, 3rem); line-height: 1.25; opacity: 0; transform: translateY(48px); transition: opacity 0.8s var(--spring), transform 0.8s var(--spring); }
+.sheet.open nav a { opacity: 1; transform: none; }
+.sheet.open .mask:nth-child(1) a { transition-delay: 0.1s; }
+.sheet.open .mask:nth-child(2) a { transition-delay: 0.15s; }
+.sheet.open .mask:nth-child(3) a { transition-delay: 0.2s; }
+.sheet.open .mask:nth-child(4) a { transition-delay: 0.25s; }
+.sheet.open .mask:nth-child(5) a { transition-delay: 0.3s; }
+.sheet.open .mask:nth-child(6) a { transition-delay: 0.35s; }
+.sheet nav a.sheet-cta { margin-top: 22px; font-size: 1.05rem; letter-spacing: 0; display: inline-flex; align-items: center; gap: 14px; padding: 6px 6px 6px 24px; border-radius: 999px; background: var(--ink); color: #050505; }
+.sheet nav a.sheet-cta .ic { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: #050505; color: var(--accent); }
+
+/* ---------- Hero · editorial split ---------- */
+.hero { min-height: 100dvh; display: flex; align-items: center; padding: 150px 0 110px; }
+.hero .wrap { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: clamp(40px, 6vw, 96px); align-items: center; }
+h1 { margin: 0 0 26px; font-size: clamp(3.1rem, 7.2vw, 6.2rem); font-weight: 700; line-height: 1.02; letter-spacing: -0.05em; text-wrap: balance; }
+h1 em { font-style: normal; background: linear-gradient(120deg, #b8fbe7, var(--accent) 55%, #1aa884); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.slogan { margin: 0 0 40px; max-width: 30ch; font-weight: 300; font-size: clamp(1.2rem, 1.9vw, 1.5rem); line-height: 1.5; color: var(--ink-2); }
+.cta-row { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 56px; }
+.stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px; margin: 0; padding: 0; list-style: none; max-width: 560px; }
+.stats li { position: relative; padding-top: 18px; }
+.stats li::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 1px; background: linear-gradient(90deg, var(--hair-2), transparent); }
+.stats strong { display: block; font-size: clamp(1.7rem, 2.6vw, 2.2rem); font-weight: 600; letter-spacing: -0.04em; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.stats span { display: block; margin-top: 6px; font-size: 0.8rem; color: var(--muted); line-height: 1.5; }
+
+/* Desk mock */
+.mock-stage { position: relative; }
+.mock-stage::before { content: ""; position: absolute; inset: 12% -6% -10% 8%; z-index: -1; border-radius: 50%; background: radial-gradient(closest-side, rgba(61, 219, 176, 0.22), transparent); }
+.mock .core { padding: 0; }
+.mock-bar { display: flex; align-items: center; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--hair); }
+.dots { display: flex; gap: 7px; }
+.dots i { width: 9px; height: 9px; border-radius: 50%; background: rgba(255, 255, 255, 0.12); }
+.mock-title { font-size: 0.84rem; font-weight: 600; color: var(--ink-2); }
+.live { margin-left: auto; display: inline-flex; align-items: center; gap: 8px; padding: 4px 11px; border-radius: 999px; background: var(--accent-soft); font-family: var(--mono); font-size: 0.68rem; color: var(--accent-ink); }
+.live i { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: beat 2.4s var(--spring) infinite; }
+@keyframes beat { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.35; transform: scale(0.7); } }
+.board { display: grid; gap: 10px; padding: 18px; }
+.lane { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 14px; align-items: center; }
+.lane-label { font-size: 10px; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); }
+.task { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 14px; align-items: center; padding: 14px 16px; border-radius: 16px; background: rgba(255, 255, 255, 0.03); box-shadow: inset 0 0 0 1px var(--hair); }
+.task.hot { background: linear-gradient(120deg, rgba(61, 219, 176, 0.14), rgba(61, 219, 176, 0.03)); box-shadow: inset 0 0 0 1px rgba(61, 219, 176, 0.3); }
+.prio { width: 34px; height: 34px; border-radius: 11px; display: grid; place-items: center; font-family: var(--mono); font-size: 0.7rem; font-weight: 600; background: rgba(255, 255, 255, 0.06); color: var(--ink-2); }
+.task.hot .prio { background: var(--accent); color: #03140f; }
+.task b { display: block; font-size: 0.92rem; font-weight: 600; }
+.task small { display: block; margin-top: 2px; font-family: var(--mono); font-size: 0.68rem; color: var(--muted); }
+.mock-foot { padding: 13px 20px; border-top: 1px solid var(--hair); font-family: var(--mono); font-size: 0.68rem; color: var(--muted); }
+
+/* ---------- Sections ---------- */
+.section { padding-block: clamp(110px, 13vw, 170px); }
+.sec-head { max-width: 820px; margin-bottom: clamp(44px, 5vw, 72px); }
+.sec-head.split { max-width: none; display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 20px 64px; align-items: end; }
+.sec-head.split .eyebrow { grid-column: 1 / -1; justify-self: start; margin: 0; }
+.sec-head .eyebrow { margin-bottom: 22px; }
+h2 { margin: 0; font-size: clamp(2.2rem, 4.6vw, 3.8rem); font-weight: 700; line-height: 1.06; letter-spacing: -0.045em; text-wrap: balance; }
+h2 em { font-style: normal; color: var(--accent); }
+.lede { margin: 0; max-width: 46ch; color: var(--ink-2); font-size: 1.06rem; }
+h3 { margin: 0 0 8px; font-size: 1.1rem; font-weight: 600; letter-spacing: -0.02em; line-height: 1.35; }
+.note { margin: 28px 0 0; display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: 0.88rem; }
+.note::before { content: ""; flex: 0 0 18px; height: 1px; background: var(--accent); }
+
+.bento { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 16px; }
+.s3 { grid-column: span 3; } .s5 { grid-column: span 5; } .s6 { grid-column: span 6; }
+.s7 { grid-column: span 7; } .s12 { grid-column: span 12; }
+.r2 { grid-row: span 2; }
+
+/* ---------- 01 Install ---------- */
+.install { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: clamp(32px, 5vw, 80px); align-items: start; }
+.install-side { position: sticky; top: 120px; }
+.term .core { padding: 0; background: linear-gradient(180deg, #0b0f0d, #070908); }
+.term-bar { display: flex; align-items: center; gap: 12px; padding: 12px 12px 12px 20px; border-bottom: 1px solid var(--hair); }
+.term-bar .t { font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.1em; color: var(--muted); }
+.copy-btn { margin-left: auto; appearance: none; cursor: pointer; display: inline-flex; align-items: center; gap: 10px; padding: 4px 4px 4px 14px; border-radius: 999px; border: 0; background: rgba(255, 255, 255, 0.06); box-shadow: inset 0 0 0 1px var(--hair-2); color: var(--ink); font: inherit; font-size: 0.8rem; font-weight: 600; transition: transform 0.6s var(--spring), background 0.6s var(--spring); }
+.copy-btn .ic { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: rgba(255, 255, 255, 0.08); transition: transform 0.6s var(--spring), background 0.6s var(--spring); }
+.copy-btn:hover .ic { transform: scale(1.08) rotate(-6deg); }
+.copy-btn:active { transform: scale(0.97); }
+.copy-btn.ok { background: var(--accent-soft); color: var(--accent-ink); }
+.copy-btn.ok .ic { background: var(--accent); color: #03140f; }
+.cmd { margin: 0; padding: 26px 22px 8px; }
+.cmd code { display: block; white-space: pre-wrap; overflow-wrap: anywhere; background: none; box-shadow: none; color: #f4fbf8; padding: 0; font-size: clamp(0.86rem, 1.4vw, 1rem); line-height: 1.6; }
+.cmd code::before { content: "$ "; color: var(--accent); }
+.copy-status { margin: 0; padding: 6px 22px 20px; color: var(--muted); font-size: 0.8rem; }
+.term-out { margin: 0 10px 10px; padding: 16px 18px; border-radius: calc(var(--r-core) - 10px); background: rgba(255, 255, 255, 0.025); box-shadow: inset 0 0 0 1px var(--hair); color: rgba(220, 240, 232, 0.62); font-family: var(--mono); font-size: 0.75rem; line-height: 1.8; white-space: pre-wrap; }
+.term-out .ok { color: var(--accent); font-weight: 600; }
+.fine { margin: 20px 4px 0; color: var(--muted); font-size: 0.85rem; }
+.steps { margin: 0; padding: 0; list-style: none; }
+.step { position: relative; display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 20px; padding-bottom: 36px; }
+.step:last-child { padding-bottom: 0; }
+.step::before { content: ""; position: absolute; left: 21.5px; top: 52px; bottom: 6px; width: 1px; background: linear-gradient(var(--hair-2), transparent); }
+.step:last-child::before { display: none; }
+.step-num { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: rgba(255, 255, 255, 0.04); box-shadow: inset 0 0 0 1px var(--hair-2), inset 0 1px 0 rgba(255,255,255,0.06); font-family: var(--mono); font-size: 0.8rem; font-weight: 500; color: var(--ink-2); }
+.step:last-child .step-num { background: var(--accent); color: #03140f; box-shadow: 0 0 30px -6px rgba(61, 219, 176, 0.7); }
+.step h3 { margin-top: 9px; }
+.step p { margin: 0; color: var(--ink-2); font-size: 0.94rem; }
+
+/* ---------- 02 Harness ---------- */
+.tool-top { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
+.avatar { flex: 0 0 auto; width: 46px; height: 46px; border-radius: 15px; display: grid; place-items: center; background: #f4f6f5; box-shadow: inset 0 -2px 0 rgba(0,0,0,0.08), 0 8px 20px -10px rgba(0,0,0,0.8); }
+.avatar img { width: 24px; height: 24px; display: block; object-fit: contain; }
+.tool h3 { margin: 0 0 6px; }
+.tag { margin-left: auto; font-size: 10px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; padding: 5px 11px; border-radius: 999px; background: var(--accent-soft); color: var(--accent-ink); white-space: nowrap; }
+.tag.warm { background: var(--warm-soft); color: var(--warm); }
+.tool p { margin: 0; color: var(--ink-2); font-size: 0.94rem; }
+.tool-hero .core { display: flex; flex-direction: column; justify-content: space-between; min-height: 260px; }
+.tool-hero .avatar { width: 58px; height: 58px; border-radius: 18px; }
+.tool-hero .avatar img { width: 30px; height: 30px; }
+.tool-hero h3 { font-size: 1.6rem; letter-spacing: -0.035em; }
+.tool-wide .core { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.tool-wide h3 { margin: 0; }
+
+/* ---------- 03 Desk flow ---------- */
+.flow-label { margin: 0 0 18px; font-size: 10px; font-weight: 600; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); }
+.flow-main { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 30px; margin: 0; padding: 0; list-style: none; }
+.node { position: relative; padding: 18px; border-radius: 18px; background: rgba(255, 255, 255, 0.03); box-shadow: inset 0 0 0 1px var(--hair); }
+.flow-main .node + .node::before { content: ""; position: absolute; left: -26px; top: 50%; width: 22px; height: 1px; background: linear-gradient(90deg, transparent, var(--accent)); }
+.flow-main .node + .node::after { content: ""; position: absolute; left: -7px; top: calc(50% - 3px); border: 3px solid transparent; border-left: 5px solid var(--accent); border-right: 0; }
+.node .name { display: block; font-family: var(--mono); font-size: 0.9rem; font-weight: 600; color: var(--ink); }
+.node p { margin: 8px 0 0; font-size: 0.84rem; color: var(--ink-2); line-height: 1.55; }
+.node.doing { box-shadow: inset 0 0 0 1px rgba(61, 219, 176, 0.4), 0 0 40px -14px rgba(61, 219, 176, 0.6); }
+.node.done { background: linear-gradient(150deg, #4ae6bc, #11a17c); box-shadow: inset 0 1px 0 rgba(255,255,255,0.35), 0 20px 40px -18px rgba(61, 219, 176, 0.7); }
+.node.done .name, .node.done p { color: #03140f; }
+.flow-side-wrap { margin-top: 30px; padding-top: 26px; border-top: 1px dashed var(--hair-2); }
+.flow-side { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin: 0; padding: 0; list-style: none; }
+.flow-side .node { background: transparent; }
+.prio-card .core { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 20px 32px; }
+.prio-list { display: flex; flex-wrap: wrap; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.prio-list li { display: flex; align-items: center; gap: 12px; padding: 6px 16px 6px 6px; border-radius: 999px; background: rgba(255, 255, 255, 0.03); box-shadow: inset 0 0 0 1px var(--hair); font-size: 0.9rem; color: var(--ink-2); }
+.prio-list b { padding: 3px 10px; border-radius: 999px; font-family: var(--mono); font-size: 0.74rem; font-weight: 600; }
+.prio-list li:nth-child(1) b { background: var(--ink); color: #050505; }
+.prio-list li:nth-child(2) b { background: var(--accent); color: #03140f; }
+.prio-list li:nth-child(3) b { background: rgba(255, 255, 255, 0.16); color: var(--ink); }
+.prio-list li:nth-child(4) b { background: rgba(255, 255, 255, 0.06); color: var(--ink-2); }
+.prio-card p { margin: 0; color: var(--ink-2); font-size: 0.94rem; }
+
+/* ---------- 04 Say ---------- */
+.say .core { padding: 10px; }
+.say-row { display: grid; grid-template-columns: minmax(0, 0.95fr) 40px minmax(0, 1.05fr); gap: 16px; align-items: center; padding: 16px 20px; border-radius: 20px; transition: background 0.6s var(--spring); }
+.say-row:hover { background: rgba(255, 255, 255, 0.03); }
+.say-row + .say-row { margin-top: 2px; }
+.bubble { justify-self: start; padding: 10px 18px; border-radius: 20px 20px 20px 6px; background: rgba(255, 255, 255, 0.06); box-shadow: inset 0 0 0 1px var(--hair); font-weight: 500; font-size: 0.94rem; }
+.say-arrow { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; color: var(--muted); box-shadow: inset 0 0 0 1px var(--hair); transition: transform 0.7s var(--spring), color 0.7s var(--spring); }
+.say-row:hover .say-arrow { transform: translateX(4px); color: var(--accent); }
+.say-out { font-size: 0.93rem; color: var(--ink-2); }
+.say-out strong { font-family: var(--mono); font-size: 0.82em; font-weight: 600; color: var(--accent-ink); background: var(--accent-soft); padding: 2px 8px; border-radius: 999px; }
+
+/* ---------- 05 Look ---------- */
+.look-path { display: inline-block; margin: 0 0 22px; font-family: var(--mono); font-size: 0.74rem; color: var(--ink-2); padding: 5px 12px; border-radius: 999px; background: rgba(255, 255, 255, 0.05); box-shadow: inset 0 0 0 1px var(--hair); }
+.look p { color: var(--ink-2); font-size: 0.94rem; }
+.look pre { margin: 18px 0 0; padding: 14px 16px; border-radius: 14px; background: rgba(0, 0, 0, 0.4); box-shadow: inset 0 0 0 1px var(--hair); color: #e3f3ec; font-family: var(--mono); font-size: 0.74rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+.look-hero .core { display: flex; flex-direction: column; align-items: flex-start; }
+.look-hero .mini { align-self: stretch; }
+.look-hero h3 { font-size: 1.6rem; letter-spacing: -0.035em; }
+.rec-tag { display: inline-block; margin-left: 10px; font-family: var(--font); font-size: 10px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent-ink); background: var(--accent-soft); padding: 4px 10px; border-radius: 999px; vertical-align: 5px; }
+.mini { margin-top: auto; padding-top: 28px; display: grid; gap: 8px; }
+.mini span { display: block; height: 38px; border-radius: 12px; background: rgba(255, 255, 255, 0.03); box-shadow: inset 0 0 0 1px var(--hair); }
+.mini span:first-child { background: linear-gradient(90deg, rgba(61, 219, 176, 0.18), rgba(61, 219, 176, 0.02)); box-shadow: inset 0 0 0 1px rgba(61, 219, 176, 0.25); }
+.mini span:nth-child(2) { width: 82%; }
+.mini span:nth-child(3) { width: 64%; }
+
+/* ---------- 06 Safety ---------- */
+.safe-icon { width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; margin-bottom: 26px; color: var(--accent-ink); background: radial-gradient(circle at 30% 25%, rgba(61, 219, 176, 0.22), rgba(61, 219, 176, 0.04)); box-shadow: inset 0 0 0 1px rgba(61, 219, 176, 0.2); }
+.safety p { margin: 0; color: var(--ink-2); font-size: 0.94rem; max-width: 52ch; }
+
+/* ---------- 07 Team ---------- */
+.team .core { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: clamp(28px, 5vw, 72px); align-items: center; padding: clamp(28px, 5vw, 64px); background: radial-gradient(80% 120% at 100% 0%, rgba(61, 219, 176, 0.12), transparent 60%), linear-gradient(180deg, var(--core-2), var(--core)); }
+.team h2 { margin-bottom: 26px; }
+.team h3 { font-size: 1.15rem; }
+.team p { color: var(--ink-2); font-size: 0.98rem; }
+.pill-line { display: inline-flex; align-items: center; gap: 10px; margin-top: 10px; padding: 7px 14px; border-radius: 999px; box-shadow: inset 0 0 0 1px var(--hair-2); font-size: 10.5px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-2); }
+.pill-line i { width: 6px; height: 6px; border-radius: 50%; background: var(--warm); box-shadow: 0 0 10px var(--warm); }
+.tree { margin: 0; padding: 24px 26px; border-radius: 22px; background: rgba(0, 0, 0, 0.35); box-shadow: inset 0 0 0 1px var(--hair); font-family: var(--mono); font-size: 0.8rem; line-height: 2.1; color: var(--ink-2); white-space: pre; overflow-x: auto; }
+.tree .k { color: var(--accent-ink); }
+.tree .d { color: var(--muted); }
+
+/* ---------- 08 FAQ ---------- */
+.faq { display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); gap: clamp(32px, 6vw, 96px); align-items: start; }
+.faq .sec-head { position: sticky; top: 120px; margin: 0; }
+.faq-list .core { padding: 8px clamp(20px, 3vw, 32px); }
+.faq-list details + details { border-top: 1px solid var(--hair); }
+.faq summary { position: relative; padding: 24px 56px 24px 0; font-size: 1.04rem; font-weight: 600; letter-spacing: -0.01em; cursor: pointer; list-style: none; transition: color 0.6s var(--spring); }
+.faq summary:hover { color: var(--accent-ink); }
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary .ic { position: absolute; right: 0; top: 50%; width: 36px; height: 36px; margin-top: -18px; border-radius: 50%; display: grid; place-items: center; background: rgba(255, 255, 255, 0.05); box-shadow: inset 0 0 0 1px var(--hair); color: var(--ink-2); transition: transform 0.7s var(--spring), background 0.7s var(--spring), color 0.7s var(--spring); }
+.faq details[open] summary .ic { transform: rotate(135deg); background: var(--accent); color: #03140f; }
+.faq details p { margin: 0 0 26px; max-width: 62ch; color: var(--ink-2); font-size: 0.95rem; }
+
+/* ---------- Final CTA + footer ---------- */
+.final { padding-top: 0; }
+.final .core { text-align: center; padding: clamp(56px, 8vw, 110px) clamp(22px, 5vw, 64px); background: radial-gradient(60% 90% at 50% 0%, rgba(61, 219, 176, 0.16), transparent 70%), linear-gradient(180deg, var(--core-2), var(--core)); }
+.final h2 { margin: 0 auto 18px; max-width: 16ch; }
+.final p { margin: 0 auto 36px; color: var(--ink-2); font-size: 1.08rem; }
+.final .cta-row { justify-content: center; margin: 0; }
+.footer { padding: 0 0 48px; }
+.footer .wrap { display: flex; align-items: center; justify-content: space-between; gap: 14px 40px; flex-wrap: wrap; padding-top: 32px; }
+.footer .wrap::before { content: ""; position: absolute; top: 0; left: clamp(16px, 4vw, 48px); right: clamp(16px, 4vw, 48px); height: 1px; background: linear-gradient(90deg, transparent, var(--hair-2), transparent); }
+.footer-brand { display: flex; align-items: center; gap: 12px; margin: 0; font-weight: 700; }
+.footer-brand .brand-mark { width: 28px; height: 28px; }
+.footer-brand .sub { font-weight: 400; color: var(--muted); }
+.footer-meta { margin: 0; font-family: var(--mono); font-size: 0.7rem; color: var(--muted); }
+
+/* ---------- Scroll interpolation ---------- */
+.js [data-reveal] { opacity: 0; transform: translateY(48px); filter: blur(10px); transition: opacity 1s var(--spring), transform 1s var(--spring), filter 1s var(--spring); transition-delay: var(--d, 0s); }
+.js [data-reveal].in { opacity: 1; transform: none; filter: none; }
+
+/* ---------- Responsive ---------- */
+@media (max-width: 1080px) {
+  .hero .wrap { grid-template-columns: minmax(0, 1fr); }
+  .hero-copy { max-width: 720px; }
+  .flow-main { grid-template-columns: minmax(0, 1fr); gap: 26px; max-width: 520px; }
+  .flow-main .node + .node::before { left: 26px; top: -22px; width: 1px; height: 18px; background: linear-gradient(transparent, var(--accent)); }
+  .flow-main .node + .node::after { left: 23px; top: -7px; border: 3px solid transparent; border-top: 5px solid var(--accent); border-bottom: 0; }
+  .flow-side { grid-template-columns: minmax(0, 1fr); max-width: 520px; }
+  .tools .s6 { grid-column: span 12; grid-row: auto; }
+  .tools .s3 { grid-column: span 6; }
+  .team .core { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 900px) {
+  .nav-links, .nav-cta { display: none; }
+  .island-inner { width: 100%; justify-content: space-between; }
+  .burger { position: relative; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; border: 0; cursor: pointer; background: rgba(255, 255, 255, 0.08); box-shadow: inset 0 0 0 1px var(--hair-2); }
+  .burger span { position: relative; display: block; width: 18px; height: 1.5px; background: var(--ink); border-radius: 2px; transition: background 0.4s var(--spring); }
+  .burger span::before, .burger span::after { content: ""; position: absolute; left: 0; width: 18px; height: 1.5px; background: var(--ink); border-radius: 2px; transition: transform 0.7s var(--spring); }
+  .burger span::before { top: -6px; }
+  .burger span::after { top: 6px; }
+  .burger.x span { background: transparent; }
+  .burger.x span::before { transform: translateY(6px) rotate(45deg); }
+  .burger.x span::after { transform: translateY(-6px) rotate(-45deg); }
+  .install, .faq { grid-template-columns: minmax(0, 1fr); }
+  .install-side, .faq .sec-head { position: static; }
+  .sec-head.split { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 767px) {
+  :root { --r-shell: 1.6rem; }
+  .wrap { padding-inline: 16px; }
+  .section { padding-block: 96px; }
+  .final { padding-top: 0; }
+  .hero { padding: 130px 0 80px; }
+  .bento { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  .bento > * { grid-column: 1 / -1 !important; grid-row: auto !important; }
+  .lane { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .say-row { grid-template-columns: minmax(0, 1fr); gap: 10px; padding: 16px 14px; }
+  .say-arrow { display: none; }
+  .cta-row .btn { flex: 1 1 100%; justify-content: space-between; }
+  .stats { gap: 16px; }
+  .stats span { font-size: 0.74rem; }
+  .tool-hero .core { min-height: 0; }
+  .tool-hero .note { margin-top: 22px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition-duration: 0.01ms !important; }
+  .js [data-reveal] { opacity: 1; transform: none; filter: none; }
+  html { scroll-behavior: auto; }
+}
+</style>
+<script>document.documentElement.classList.add('js');</script>
+</head>
+<body>
+
+<a class="skip" href="#main">Bỏ qua đến nội dung</a>
+
+<header class="island">
+  <div class="island-inner">
+    <a class="brand" href="#top" aria-label="Agent Work Kit, về đầu trang">
+      <span class="brand-mark" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="11" rx="2.5"></rect><path d="M8 20h8M12 16v4"></path></svg></span>
+      Agent Work Kit <span class="brand-ver">v0.2</span>
+    </a>
+    <nav class="nav-links" aria-label="Mục lục">
+      <a href="#install">Cài đặt</a>
+      <a href="#harness">Công cụ</a>
+      <a href="#desk">Cái bàn</a>
+      <a href="#say">Bạn nói</a>
+      <a href="#faq">Hỏi đáp</a>
+    </nav>
+    <a class="nav-cta" href="#install">Cài ngay <span class="ic" aria-hidden="true"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M8 7h9v9"></path></svg></span></a>
+    <button class="burger" id="burger" type="button" aria-label="Mở menu" aria-expanded="false" aria-controls="sheet"><span></span></button>
+  </div>
+</header>
+<div class="sheet" id="sheet" aria-hidden="true">
+  <nav aria-label="Menu">
+    <span class="mask"><a href="#install">Cài đặt</a></span>
+    <span class="mask"><a href="#harness">Công cụ</a></span>
+    <span class="mask"><a href="#desk">Cái bàn</a></span>
+    <span class="mask"><a href="#say">Bạn nói</a></span>
+    <span class="mask"><a href="#faq">Hỏi đáp</a></span>
+    <span class="mask"><a href="#install" class="sheet-cta">Cài ngay <span class="ic" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M8 7h9v9"></path></svg></span></a></span>
+  </nav>
+</div>
+
+<main id="main">
+
+  <section class="hero" id="top">
+    <div class="wrap">
+      <div class="hero-copy">
+        <p class="eyebrow" data-reveal><b>v0.2</b> Bàn làm việc cho agent</p>
+        <h1 data-reveal style="--d:0.08s">Cái <em>bàn</em> cho mọi việc của agent</h1>
+        <p class="slogan" data-reveal style="--d:0.16s">Nhớ mọi việc, xong có bằng chứng.</p>
+        <div class="cta-row" data-reveal style="--d:0.24s">
+          <a class="btn btn-primary" href="#install">Cài trong 30 giây <span class="ic" aria-hidden="true"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M8 7h9v9"></path></svg></span></a>
+          <a class="btn btn-ghost" href="#say">Xem cách dùng <span class="ic" aria-hidden="true"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M6 13l6 6 6-6"></path></svg></span></a>
+        </div>
+        <ul class="stats" data-reveal style="--d:0.32s" aria-label="Con số nổi bật">
+          <li><strong>~20</strong><span>token / lần cập nhật bàn</span></li>
+          <li><strong>0</strong><span>thư viện ngoài · chỉ Node 18+</span></li>
+          <li><strong>30</strong><span>bước hoàn tác · không mất gì</span></li>
+        </ul>
+      </div>
+
+      <div class="mock-stage" data-reveal style="--d:0.2s">
+        <div class="shell mock" role="img" aria-label="Ảnh minh hoạ dashboard: một việc đang làm, một việc đang chờ, một việc kế tiếp.">
+          <div class="core" aria-hidden="true">
+            <div class="mock-bar">
+              <span class="dots"><i></i><i></i><i></i></span>
+              <span class="mock-title">Bàn hôm nay</span>
+              <span class="live"><i></i>10s</span>
+            </div>
+            <div class="board">
+              <div class="lane"><span class="lane-label">Đang làm · 1</span><div class="task hot"><span class="prio">P1</span><div><b>Làm màn hình đăng nhập</b><small>doing · có điều kiện xong</small></div></div></div>
+              <div class="lane"><span class="lane-label">Đang chờ · 1</span><div class="task"><span class="prio">P2</span><div><b>API từ anh A</b><small>waiting · tự quay lại</small></div></div></div>
+              <div class="lane"><span class="lane-label">Kế tiếp</span><div class="task"><span class="prio">P2</span><div><b>Viết test cho form</b><small>todo</small></div></div></div>
+            </div>
+            <div class="mock-foot">desk.html · tự làm mới mỗi 10 giây</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="install">
+    <div class="wrap">
+      <div class="sec-head split">
+        <p class="eyebrow" data-reveal><b>01</b> Cài đặt</p>
+        <h2 data-reveal style="--d:0.06s">Dán <em>một dòng</em> lệnh, rồi làm theo 6 bước</h2>
+        <p class="lede" data-reveal style="--d:0.12s">Mỗi bước nói rõ bạn gõ gì và nhìn thấy gì.</p>
+      </div>
+      <div class="install">
+        <div class="install-side" data-reveal>
+          <div class="shell term">
+            <div class="core">
+              <div class="term-bar">
+                <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
+                <span class="t">TERMINAL</span>
+                <button class="copy-btn" id="copy-btn" type="button" aria-describedby="copy-status"><span id="copy-label">Chép lệnh</span><span class="ic" aria-hidden="true"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2.5"></rect><path d="M5 15V5a2 2 0 0 1 2-2h10"></path></svg></span></button>
+              </div>
+              <pre class="cmd" tabindex="0" aria-label="Lệnh cài Agent Work Kit"><code id="install-cmd">npx github:nguyennamkkb/agent-work-kit init --universal</code></pre>
+              <p class="copy-status" id="copy-status" role="status" aria-live="polite">Bấm Chép lệnh, quay lại terminal và dán.</p>
+              <p class="term-out" tabindex="0" aria-label="Kết quả mẫu sau khi cài">Desk installed:
+  + .desk/desk.json
+  + .agentkit/...
+  ...
+
+<span class="ok">Ready.</span></p>
+            </div>
+          </div>
+          <p class="fine">Ba gói <code>--universal</code> / <code>--ios</code> / <code>--designer</code> (chi tiết ở Hỏi đáp) · Cần Node 18+, một terminal, thư mục dự án · Không cần tài khoản.</p>
+        </div>
+        <ol class="steps">
+          <li class="step" data-reveal><span class="step-num">01</span><div><h3>Mở terminal đúng thư mục</h3><p>VS Code: <strong>Terminal → New Terminal</strong>. Không dùng VS Code thì gõ <code>cd đường-dẫn-tới-dự-án</code> — dấu nhắc kết thúc bằng tên thư mục là đúng.</p></div></li>
+          <li class="step" data-reveal><span class="step-num">02</span><div><h3>Dán và chạy lệnh cài</h3><p>Dùng nút <strong>Chép lệnh</strong> ở khung lệnh, dán vào terminal, nhấn <strong>Enter</strong> — terminal liệt kê file mới rồi hiện <strong>Ready.</strong></p></div></li>
+          <li class="step" data-reveal><span class="step-num">03</span><div><h3>Kiểm tra ba file của bàn</h3><p>Gõ <code>ls .desk</code> (macOS) hoặc <code>dir .desk</code> (Windows) — thấy <code>desk.json</code>, <code>DESK.md</code>, <code>desk.html</code>.</p></div></li>
+          <li class="step" data-reveal><span class="step-num">04</span><div><h3>Mở bảng điều khiển</h3><p>Gõ <code>open .desk/desk.html</code> (macOS) hoặc <code>start .desk\desk.html</code>, hoặc bấm đúp file — dashboard mở ra, còn trống.</p></div></li>
+          <li class="step" data-reveal><span class="step-num">05</span><div><h3>Mở agent trong dự án</h3><p>Mở agent bạn dùng ngay trong thư mục dự án (xem <a href="#harness">mục 02</a>) — hook mở phiên in một dòng: mục tiêu · việc đang làm · việc kế.</p></div></li>
+          <li class="step" data-reveal><span class="step-num">06</span><div><h3>Nói việc đầu tiên</h3><p>Gõ một câu bình thường, ví dụ <code>Việc đầu tiên: lên kế hoạch cho buổi ra mắt.</code> — việc xuất hiện ở <strong>doing</strong>, kèm điều kiện xong.</p></div></li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="harness">
+    <div class="wrap">
+      <div class="sec-head split">
+        <p class="eyebrow" data-reveal><b>02</b> Công cụ</p>
+        <h2 data-reveal style="--d:0.06s">Bạn dùng agent nào <em>cũng được</em></h2>
+        <p class="lede" data-reveal style="--d:0.12s">Hầu hết không cần làm gì. Chỉ Codex và Pi hỏi bạn một lần cho mỗi dự án.</p>
+      </div>
+      <div class="bento tools">
+        <div class="shell lift tool tool-hero s6 r2" data-reveal><div class="core">
+          <div>
+            <div class="tool-top"><span class="avatar"><img src="https://cdn.simpleicons.org/claude" alt="" width="30" height="30" loading="lazy"></span><span class="tag">0 bước</span></div>
+            <h3>Claude Code</h3>
+            <p>Kit tự thêm skill và hook.</p>
+          </div>
+          <p class="note">Kit tự nhận ra công cụ đang dùng. Nếu không thấy công cụ nào, kit cài cho Claude Code.</p>
+        </div></div>
+        <div class="shell lift tool s3" data-reveal style="--d:0.06s"><div class="core"><div class="tool-top"><span class="avatar"><img src="https://openai.com/favicon.ico" alt="" width="24" height="24" loading="lazy"></span><span class="tag warm">1 lần</span></div><h3>Codex</h3><p>Mở Codex trong dự án. Gõ <code>/hooks</code>. Tin cậy hook của <code>agent-work-kit</code>.</p></div></div>
+        <div class="shell lift tool s3" data-reveal style="--d:0.12s"><div class="core"><div class="tool-top"><span class="avatar"><img src="https://pi.dev/favicon.svg" alt="" width="24" height="24" loading="lazy"></span><span class="tag warm">1 lần</span></div><h3>Pi</h3><p>Khi Pi hỏi <strong>Trust project folder</strong>, chọn tin cậy.</p></div></div>
+        <div class="shell lift tool s3" data-reveal style="--d:0.06s"><div class="core"><div class="tool-top"><span class="avatar"><img src="https://opencode.ai/favicon.ico" alt="" width="24" height="24" loading="lazy"></span><span class="tag">0 bước</span></div><h3>OpenCode</h3><p>Kit tự nối vào OpenCode.</p></div></div>
+        <div class="shell lift tool s3" data-reveal style="--d:0.12s"><div class="core"><div class="tool-top"><span class="avatar"><img src="https://omp.sh/favicon.ico" alt="" width="24" height="24" loading="lazy"></span><span class="tag">0 bước</span></div><h3>Oh My Pi</h3><p>Kit tự nối vào Oh My Pi.</p></div></div>
+        <div class="shell lift tool tool-wide s12" data-reveal><div class="core"><span class="avatar"><img src="https://cdn.simpleicons.org/cursor" alt="" width="24" height="24" loading="lazy"></span><h3>Cursor</h3><p>Nhận checklist thay vì hook.</p><span class="tag">0 bước</span></div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="desk">
+    <div class="wrap">
+      <div class="sec-head split">
+        <p class="eyebrow" data-reveal><b>03</b> Cái bàn</p>
+        <h2 data-reveal style="--d:0.06s">Một việc đi qua <em>những đâu?</em></h2>
+        <p class="lede" data-reveal style="--d:0.12s">Agent tự chuyển trạng thái. Bạn chỉ cần nói việc. Mỗi trạng thái một nghĩa rõ ràng.</p>
+      </div>
+      <div class="bento">
+        <div class="shell s12" data-reveal><div class="core">
+          <p class="flow-label">Luồng chính</p>
+          <ol class="flow-main" aria-label="Luồng chính của một việc">
+            <li class="node"><span class="name">inbox</span><p>Ghi nhanh, chưa phân loại.</p></li>
+            <li class="node"><span class="name">todo</span><p>Hàng chờ theo P0 → P3.</p></li>
+            <li class="node doing"><span class="name">doing</span><p>Đang làm, một việc một lúc.</p></li>
+            <li class="node"><span class="name">review</span><p>Đang kiểm kết quả.</p></li>
+            <li class="node done"><span class="name">done ✓</span><p>Xong, luôn kèm bằng chứng.</p></li>
+          </ol>
+          <div class="flow-side-wrap">
+            <p class="flow-label">Ngoài luồng chính</p>
+            <ul class="flow-side">
+              <li class="node"><span class="name">waiting</span><p>Chờ người, việc khác, hoặc tới hạn. Tự quay lại.</p></li>
+              <li class="node"><span class="name">dropped</span><p>Bỏ có lý do, lấy lại được.</p></li>
+              <li class="node"><span class="name">failed</span><p>Thất bại, kèm lý do.</p></li>
+            </ul>
+          </div>
+        </div></div>
+        <div class="shell lift prio-card s12" data-reveal style="--d:0.08s"><div class="core">
+          <ul class="prio-list" aria-label="Bốn mức ưu tiên"><li><b>P0</b>gấp</li><li><b>P1</b>nên làm</li><li><b>P2</b>đợi được</li><li><b>P3</b>có thì tốt</li></ul>
+          <p>Nói <strong>“gấp”</strong> hoặc <strong>“quan trọng”</strong> là việc được nâng lên P0.</p>
+        </div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="say">
+    <div class="wrap">
+      <div class="sec-head split">
+        <p class="eyebrow" data-reveal><b>04</b> Bạn nói</p>
+        <h2 data-reveal style="--d:0.06s">Bạn nói gì, <em>bàn làm nấy</em></h2>
+        <p class="lede" data-reveal style="--d:0.12s">Không cần học lệnh. Nói như đang trao đổi với đồng nghiệp. Agent tự ghi vào bàn.</p>
+      </div>
+      <div class="shell say" data-reveal><div class="core">
+        <div class="say-row"><span class="bubble">“Làm màn hình đăng nhập.”</span><span class="say-arrow" aria-hidden="true">→</span><span class="say-out">Thành việc <strong>doing</strong>, kèm điều kiện xong do agent suy ra.</span></div>
+        <div class="say-row"><span class="bubble">“Gấp.” / “Quan trọng.”</span><span class="say-arrow" aria-hidden="true">→</span><span class="say-out">Việc vừa nhắc lên <strong>P0</strong> (thang ưu tiên ở <a href="#desk">mục 03</a>).</span></div>
+        <div class="say-row"><span class="bubble">“Để sau.” / “Tuần sau.”</span><span class="say-arrow" aria-hidden="true">→</span><span class="say-out">Vào <strong>todo</strong> với ưu tiên thấp, không làm ngay.</span></div>
+        <div class="say-row"><span class="bubble">“Chờ anh A gửi API.”</span><span class="say-arrow" aria-hidden="true">→</span><span class="say-out">Sang <strong>waiting</strong>.</span></div>
+        <div class="say-row"><span class="bubble">“Bỏ việc đó đi.”</span><span class="say-arrow" aria-hidden="true">→</span><span class="say-out">Sang <strong>dropped</strong>, lưu nguyên lời bạn làm lý do. Lấy lại được.</span></div>
+        <div class="say-row"><span class="bubble">“Nhớ: luôn build bằng scheme Lumen-Dev.”</span><span class="say-arrow" aria-hidden="true">→</span><span class="say-out">Lưu vào bộ nhớ. Phiên sau vẫn còn.</span></div>
+        <div class="say-row"><span class="bubble">“Sai rồi, đừng sửa file đó.”</span><span class="say-arrow" aria-hidden="true">→</span><span class="say-out">Thành một bài học. Gặp lần hai, agent đề xuất cách sửa gốc.</span></div>
+        <div class="say-row"><span class="bubble">“Chia việc cho đội làm song song.”</span><span class="say-arrow" aria-hidden="true">→</span><span class="say-out">Việc được chia cho worker chạy song song (cần Orca, xem <a href="#team">mục 07</a>).</span></div>
+      </div></div>
+      <p class="note" data-reveal>Dòng cuối là chế độ đội, cần Orca.</p>
+    </div>
+  </section>
+
+  <section class="section" id="look">
+    <div class="wrap">
+      <div class="sec-head split">
+        <p class="eyebrow" data-reveal><b>05</b> Xem bàn</p>
+        <h2 data-reveal style="--d:0.06s">Xem ở đâu <em>cũng được</em></h2>
+        <p class="lede" data-reveal style="--d:0.12s">Ba cách xem cùng một cái bàn. Chọn cách hợp với bạn.</p>
+      </div>
+      <div class="bento look">
+        <div class="shell lift look-hero s7 r2" data-reveal><div class="core">
+          <p class="look-path">.desk/desk.html</p>
+          <h3>Dashboard đầy đủ <span class="rec-tag">Nên dùng</span></h3>
+          <p>Mở bằng trình duyệt. Đây là nơi nên xem mỗi ngày.</p>
+          <div class="mini" aria-hidden="true"><span></span><span></span><span></span></div>
+        </div></div>
+        <div class="shell lift s5" data-reveal style="--d:0.08s"><div class="core"><p class="look-path">.desk/DESK.md</p><h3>Bản đọc nhanh</h3><p>Nằm trong git. Mở bằng bất kỳ trình soạn thảo nào.</p></div></div>
+        <div class="shell lift s5" data-reveal style="--d:0.16s"><div class="core"><p class="look-path">Terminal</p><h3>Xem ngay tại chỗ</h3><p>Không cần mở trình duyệt.</p><pre>npx github:nguyennamkkb/agent-work-kit desk</pre></div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="safety">
+    <div class="wrap">
+      <div class="sec-head split">
+        <p class="eyebrow" data-reveal><b>06</b> An toàn</p>
+        <h2 data-reveal style="--d:0.06s">Không có gì <em>mất hẳn</em></h2>
+        <p class="lede" data-reveal style="--d:0.12s">Bàn được làm để bạn yên tâm. Việc lớn luôn hỏi trước, thao tác nhầm vẫn lùi được.</p>
+      </div>
+      <div class="bento safety">
+        <div class="shell lift s7" data-reveal><div class="core"><span class="safe-icon" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"></path><path d="M4 9h10a6 6 0 0 1 0 12h-3"></path></svg></span><h3>Hoàn tác 30 bước</h3><p><code>desk undo</code> lùi lại thao tác vừa rồi. Việc đã huỷ vẫn nằm trong archive.</p></div></div>
+        <div class="shell lift s5" data-reveal style="--d:0.08s"><div class="core"><span class="safe-icon" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"></path><path d="M9 7V5h6v2"></path><path d="M6 7l1 13h10l1-13"></path></svg></span><h3>Bỏ việc phải có lý do</h3><p><code>drop</code> bắt buộc nhập lý do. Lý do được giữ nguyên văn.</p></div></div>
+        <div class="shell lift s5" data-reveal><div class="core"><span class="safe-icon" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4 6v6c0 4.4 3.4 7.8 8 9 4.6-1.2 8-4.6 8-9V6l-8-3Z"></path><path d="m9 12 2 2 4-4"></path></svg></span><h3>Việc lớn hỏi trước</h3><p>Push, merge, deploy, xoá worktree: agent phải hỏi bạn.</p></div></div>
+        <div class="shell lift s7" data-reveal style="--d:0.08s"><div class="core"><span class="safe-icon" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"></path><path d="M3 3v5h5"></path></svg></span><h3>Gỡ sạch khi muốn</h3><p><code>remove</code> trả mọi file về đúng từng byte; <code>.desk/</code> được giữ trừ khi thêm <code>--purge-desk</code>.</p></div></div>
+      </div>
+      <p class="note" data-reveal>Kit chỉ ghi trong thư mục dự án, không ghi vào home.</p>
+    </div>
+  </section>
+
+  <section class="section" id="team">
+    <div class="wrap">
+      <div class="shell team" data-reveal><div class="core">
+        <div>
+          <p class="eyebrow"><b>07</b> Tùy chọn</p>
+          <h2>Khi việc <em>lớn dần</em></h2>
+          <h3>Một agent là đủ cho hầu hết việc.</h3>
+          <p>Việc đủ lớn, kit có thể chia cho nhiều agent chạy song song, mỗi agent một worktree riêng, và kiểm trước khi merge.</p>
+          <p>Phần này cần ứng dụng Orca. Không có Orca, bàn vẫn chạy đầy đủ với một agent. Worker đầu tiên của mỗi phiên cần bạn đồng ý một lần.</p>
+          <span class="pill-line"><i></i>Cần Orca · tùy chọn</span>
+        </div>
+        <pre class="tree" aria-hidden="true"><span class="k">lead</span>   <span class="d">── chia việc</span>
+ ├─ <span class="k">worker 1</span>  <span class="d">worktree riêng</span>
+ ├─ <span class="k">worker 2</span>  <span class="d">worktree riêng</span>
+ └─ <span class="k">worker 3</span>  <span class="d">worktree riêng</span>
+        <span class="d">↓</span>
+ <span class="k">kiểm</span> <span class="d">──→</span> <span class="k">merge</span></pre>
+      </div></div>
+    </div>
+  </section>
+
+  <section class="section" id="faq">
+    <div class="wrap faq">
+      <div class="sec-head">
+        <p class="eyebrow" data-reveal><b>08</b> Hỏi đáp</p>
+        <h2 data-reveal style="--d:0.06s">Bốn câu <em>hay hỏi</em></h2>
+      </div>
+      <div class="shell faq-list" data-reveal><div class="core">
+        <details><summary>Tôi có cần biết code không?<span class="ic" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>Không. Cứ nói việc bằng tiếng Việt như ở <a href="#say">mục 04</a>; muốn tự xem thì mở <code>desk.html</code>.</p></details>
+        <details><summary>Chọn nghề nào?<span class="ic" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>Không chắc thì chọn <code>--universal</code>. Gói này dùng được cho mọi việc: nghiên cứu, viết, lập kế hoạch, phân tích, học một thứ mới, làm hồ sơ, hay viết code. Chọn <code>--ios</code> nếu làm iOS. Chọn <code>--designer</code> nếu làm designer Figma.</p></details>
+        <details><summary>Gỡ thế nào?<span class="ic" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>Chạy <code>npx github:nguyennamkkb/agent-work-kit remove</code>. File của bạn trở về đúng như trước khi cài. Thêm <code>--purge-desk</code> nếu muốn xoá cả bàn.</p></details>
+        <details><summary>Cần Node bản nào?<span class="ic" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>Node 18 trở lên. Gõ <code>node -v</code> để xem. Thấy <code>v18</code> hoặc cao hơn là được. Chưa có thì cài Node bản LTS trước, rồi làm lại bước cài.</p></details>
+      </div></div>
+    </div>
+  </section>
+
+  <section class="section final">
+    <div class="wrap">
+      <div class="shell" data-reveal><div class="core">
+        <h2>Sẵn sàng đặt <em>cái bàn</em> vào dự án?</h2>
+        <p>Một dòng lệnh, sáu bước, rồi cứ nói việc.</p>
+        <div class="cta-row">
+          <a class="btn btn-primary" href="#install">Bắt đầu cài đặt <span class="ic" aria-hidden="true"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M8 7h9v9"></path></svg></span></a>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="footer">
+  <div class="wrap">
+    <p class="footer-brand"><span class="brand-mark" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="11" rx="2.5"></rect><path d="M8 20h8M12 16v4"></path></svg></span>Agent Work Kit <span class="sub">— Một cái bàn cho mỗi dự án.</span></p>
+    <p class="footer-meta">Node 18+ · Không thư viện · Chỉ ghi trong thư mục dự án · Trang hướng dẫn tĩnh, không theo dõi.</p>
+  </div>
+</footer>
+
+<script>
+(function () {
+  var button = document.getElementById('copy-btn');
+  var label = document.getElementById('copy-label');
+  var command = document.getElementById('install-cmd');
+  var status = document.getElementById('copy-status');
+  if (button && command && status) {
+    button.addEventListener('click', function () {
+      var text = command.textContent;
+      function done() {
+        label.textContent = 'Đã chép';
+        button.classList.add('ok');
+        status.textContent = 'Đã chép lệnh. Quay lại terminal và dán.';
+        setTimeout(function () { label.textContent = 'Chép lệnh'; button.classList.remove('ok'); }, 2400);
+      }
+      function fallback() {
+        var range = document.createRange();
+        range.selectNodeContents(command);
+        var selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+        status.textContent = 'Trình duyệt không cho chép tự động. Nhấn Ctrl+C hoặc ⌘C để chép.';
+      }
+      if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+        navigator.clipboard.writeText(text).then(done, fallback);
+      } else { fallback(); }
+    });
+  }
+
+  var burger = document.getElementById('burger');
+  var sheet = document.getElementById('sheet');
+  function setSheet(open) {
+    sheet.classList.toggle('open', open);
+    burger.classList.toggle('x', open);
+    burger.setAttribute('aria-expanded', open ? 'true' : 'false');
+    burger.setAttribute('aria-label', open ? 'Đóng menu' : 'Mở menu');
+    sheet.setAttribute('aria-hidden', open ? 'false' : 'true');
+    document.body.style.overflow = open ? 'hidden' : '';
+  }
+  if (burger && sheet) {
+    burger.addEventListener('click', function () { setSheet(!sheet.classList.contains('open')); });
+    sheet.querySelectorAll('a').forEach(function (a) { a.addEventListener('click', function () { setSheet(false); }); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && sheet.classList.contains('open')) { setSheet(false); burger.focus(); } });
+  }
+
+  if (window.matchMedia('(hover: hover)').matches) {
+    document.querySelectorAll('.lift').forEach(function (card) {
+      var core = card.querySelector('.core');
+      card.addEventListener('pointermove', function (e) {
+        var r = card.getBoundingClientRect();
+        core.style.setProperty('--mx', (e.clientX - r.left) + 'px');
+        core.style.setProperty('--my', (e.clientY - r.top) + 'px');
+      });
+    });
+  }
+
+  if ('IntersectionObserver' in window) {
+    var links = {};
+    document.querySelectorAll('.nav-links a').forEach(function (a) { links[a.getAttribute('href').slice(1)] = a; });
+    var spy = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (!e.isIntersecting) return;
+        Object.keys(links).forEach(function (k) { links[k].classList.remove('active'); });
+        if (links[e.target.id]) links[e.target.id].classList.add('active');
+      });
+    }, { rootMargin: '-45% 0px -50% 0px' });
+    document.querySelectorAll('main section[id]').forEach(function (s) { spy.observe(s); });
+
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
+      });
+    }, { threshold: 0.08, rootMargin: '0px 0px -6% 0px' });
+    document.querySelectorAll('[data-reveal]').forEach(function (el) { io.observe(el); });
+  } else {
+    document.querySelectorAll('[data-reveal]').forEach(function (el) { el.classList.add('in'); });
+  }
+})();
+</script>
+
+</body>
+</html>
