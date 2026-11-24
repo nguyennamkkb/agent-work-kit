@@ -17,20 +17,27 @@ export async function confirm(question, def = true) {
   return a ? a.startsWith('y') : def;
 }
 
+export function parseChoice(input, options) {
+  const tokens = input.replace(/[\[\]()]/g, ' ').split(/[\s,;]+/).filter(Boolean);
+  const ids = [];
+  const unknown = [];
+  for (const t of tokens) {
+    const id = /^\d+$/.test(t) ? options[Number(t) - 1]?.id : options.find((o) => o.id === t.toLowerCase())?.id;
+    if (!id) unknown.push(t);
+    else if (!ids.includes(id)) ids.push(id);
+  }
+  return { ids, unknown };
+}
+
 export async function pick(question, options, preselected = []) {
   console.log(question);
   options.forEach((o, i) => console.log(`  ${i + 1}. ${o.id}${o.label ? ` — ${o.label}` : ''}`));
   const def = preselected.join(',');
-  const a = await ask('Choose (comma-separated numbers or names, empty = none)', def);
-  if (!a) return [];
-  return [
-    ...new Set(
-      a
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean)
-        .map((s) => (/^\d+$/.test(s) ? options[Number(s) - 1]?.id : s))
-        .filter((s) => options.some((o) => o.id === s)),
-    ),
-  ];
+  for (;;) {
+    const a = await ask('Choose (numbers or names separated by commas, empty = none)', def);
+    if (!a) return [];
+    const { ids, unknown } = parseChoice(a, options);
+    if (unknown.length) console.log(`Not in the list: ${unknown.join(', ')}`);
+    if (ids.length || !unknown.length) return ids;
+  }
 }
