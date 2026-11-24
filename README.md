@@ -1,256 +1,267 @@
-# agent-work-kit
+<p align="center">
+  <img src="assets/logo.svg" width="96" height="96" alt="agent-work-kit logo">
+</p>
 
-Bộ khung giúp coding agent làm việc dài hơi, ngăn nắp và an toàn trong một dự án, dù là **một agent** hay **cả một đội agent**.
+<h1 align="center">agent-work-kit</h1>
 
-Mỗi dự án có **một cái bàn làm việc** (`.desk/`) cho **một nghề** (iOS, designer…). Trên bàn có mục tiêu, việc đang làm, hàng chờ, việc đang đợi người khác, điều cần nhớ, bài học, và các worker đang làm gì. Nhờ vậy agent:
+<p align="center">
+  <strong>Every session starts where the last one stopped.</strong><br>
+  A shared desk for coding agents: it remembers the work, splits big jobs across a team, and reports <em>done</em> only with proof.
+</p>
 
-- luôn biết mục tiêu, việc đang làm và việc kế tiếp, kể cả sang phiên mới hay sau khi context bị nén;
-- không chệch hướng: mỗi lúc một việc, việc mới phát sinh thì vào hàng chờ;
-- tự nhận ra điều gì quan trọng từ cách bạn làm việc với nó;
-- khi việc đủ lớn thì tự chia cho nhiều worker (qua [Orca](https://github.com/stablyai/orca)), mỗi worker có worktree riêng, có tester kiểm, và chỉ merge những gì đã được chứng minh là chạy đúng;
-- tự cải tiến cách làm việc, nhưng mọi thay đổi về luật đều phải được bạn đồng ý.
+<p align="center">
+  <img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-1B5244">
+  <img alt="Node 18 or later" src="https://img.shields.io/badge/node-%E2%89%A518-1B5244">
+  <img alt="Zero dependencies" src="https://img.shields.io/badge/dependencies-0-1B5244">
+</p>
 
-**Bạn không phải làm gì thêm.** Cài xong, cứ làm việc với agent như bình thường.
+<p align="center">
+  English · <a href="README.vi.md">Tiếng Việt</a>
+</p>
 
 ---
 
-## 5 phút cho người mới
+## Contents
 
-**1. Cài** (chỉ cần Node 18 trở lên, không cài thư viện nào khác):
+- [Overview](#overview)
+- [Quick start](#quick-start)
+- [How it works](#how-it-works)
+- [The dashboard](#the-dashboard)
+- [Team mode](#team-mode)
+- [Safety](#safety)
+- [Supported harnesses](#supported-harnesses)
+- [Rules and self-improvement](#rules-and-self-improvement)
+- [Command reference](#command-reference)
+- [What gets installed](#what-gets-installed)
+- [Token cost](#token-cost)
+- [Adding a profession](#adding-a-profession)
+- [Development](#development)
+- [Known limitations](#known-limitations)
+- [FAQ](#faq)
+
+## Overview
+
+Coding agents are capable, but they lose the thread: a new session forgets the goal, a side idea derails the current task, and "done" is often reported without evidence. **agent-work-kit** fixes this by giving each project a single working desk, `.desk/`, plus the hooks and skill that make agents use it.
+
+On the desk there is the goal, the task in progress, the queue, what is waiting on someone else, things worth remembering, lessons learned, and what each worker is doing. As a result the agent:
+
+- always knows the goal, the current task and the next one, across sessions and after context compaction;
+- stays on track: one task at a time, new ideas go to the queue;
+- notices what matters from how you talk to it, with no commands for you to learn;
+- splits large jobs across several workers (through [Orca](https://github.com/stablyai/orca)), each in its own git worktree, checked by a tester, merged only once proven;
+- improves its own way of working, but every rule change needs your explicit approval.
+
+**You do nothing extra.** Install it, then work with your agent as usual.
+
+| | |
+|---|---|
+| **Zero dependencies** | Node 18 or later, ESM, built-ins only |
+| **Stays in your project** | writes only inside the project directory; `remove` restores every file byte for byte |
+| **Harness-neutral** | Claude Code, Codex, OpenCode, Pi, Oh My Pi, Cursor |
+| **Cheap** | about 20 tokens per desk update, 0 for an ordinary message |
+
+## Quick start
+
+**1. Install** (Node 18 or later, nothing else to install):
 
 ```bash
-npx github:nguyennamkkb/agent-work-kit init --ios        # bàn cho iOS developer
-npx github:nguyennamkkb/agent-work-kit init --designer   # bàn cho product designer (Figma)
-npx github:nguyennamkkb/agent-work-kit init --universal  # bàn cho mọi việc, kể cả lĩnh vực bạn chưa biết
+npx github:nguyennamkkb/agent-work-kit init --universal
 ```
 
-**Không biết chọn nghề nào thì chọn `--universal`.** Gói này dành cho mọi loại việc: nghiên cứu, viết, lập kế hoạch, phân tích, học một thứ mới, làm hồ sơ, hay viết code. Agent làm theo các phương pháp làm việc chuyên nghiệp:
+`--universal` suits any kind of work: research, writing, planning, analysis, learning something new, or code. The agent follows established working methods:
 
-| Phương pháp | Agent làm gì cho bạn |
+| Method | What the agent does for you |
 |---|---|
-| Định nghĩa "xong" (SMART, Definition of Done) | trước khi làm, nói rõ sẽ có gì, cho ai, với giới hạn nào, và kiểm bằng cách nào |
-| Nghiên cứu có nguồn | lĩnh vực lạ thì tìm cách làm chuẩn trước; dữ kiện quan trọng phải có ít nhất 2 nguồn; không bịa số liệu hay trích dẫn |
-| Chia việc không chồng chéo, không sót (MECE) | chia thành các bước kiểm được; bước rủi ro nhất làm thử trước |
-| Ma trận lựa chọn | khi phải chọn: đưa 2–3 phương án kèm lợi, hại, chi phí, rồi khuyên một phương án và giải thích vì sao |
-| Pre-mortem | trước việc khó quay lại (tiền, pháp lý, sức khoẻ, gửi đi, xoá): liệt kê điều có thể hỏng, có bản dự phòng, hỏi bạn trước; nói rõ lúc nào cần chuyên gia có chứng chỉ |
-| PDCA, chỉ xong khi có bằng chứng | kiểm từng bước theo tiêu chí, và chỉ báo xong khi đưa ra được bằng chứng |
-| Mẫu chuẩn của từng nghề | báo cáo thì kết luận trước (pyramid principle); kế hoạch thì có mốc, người làm, rủi ro; email thì nói rõ cần gì, bối cảnh, bước tiếp theo… |
-| Dạy trong lúc làm (BLUF) | trả lời trước rồi mới giải thích; giải thích thuật ngữ mới và ghi nhớ cho bạn; chỉ cho bạn những gì nên tự kiểm |
-| Làm bản nhỏ trước | đưa bản nháp hoặc dàn ý sớm để bạn góp ý, rồi mới hoàn thiện |
-| After-action review | xong việc thì rút ra một bài học để lần sau làm tốt hơn |
+| Definition of done (SMART) | before starting, states what will exist, for whom, within which limits, and how it will be checked |
+| Sourced research | looks up the standard approach in unfamiliar fields; important facts need at least two sources; never invents figures or citations |
+| MECE breakdown | splits work into checkable steps; tries the riskiest step first |
+| Decision matrix | when a choice is needed, presents 2–3 options with pros, cons and cost, then recommends one and says why |
+| Pre-mortem | before anything hard to undo (money, legal, health, sending, deleting), lists what could go wrong, prepares a fallback and asks you first |
+| PDCA with proof | checks each step against criteria and reports done only with evidence |
+| Professional templates | conclusion first for reports (pyramid principle); milestones, owners and risks for plans; ask, context and next step for emails |
+| Teach while working (BLUF) | answers first, then explains; defines new terms and remembers them for you |
+| Small first version | shows an outline or draft early so you can steer |
+| After-action review | closes each task with one lesson for next time |
 
-Kit tự nhận ra harness bạn đang dùng (Claude Code, Codex, OpenCode, Pi, Oh My Pi, Cursor). Nếu không thấy harness nào, kit cài cho Claude Code.
+Profession packs for specific fields are also available:
 
-**2. Bước tin cậy một lần** (đây là bước bảo mật của chính harness, kit không làm thay được):
+| Flag | Pack | Status |
+|---|---|---|
+| `--universal` | any work | recommended |
+| `--ios` | iOS developer (SwiftUI, Xcode; done means a green build and tests) | preview |
+| `--designer` | product designer (Figma over MCP, library tokens) | preview |
 
-| Harness | Việc cần làm |
+The kit detects which harness your project uses. If it finds none, it installs for Claude Code.
+
+**2. Trust once.** This step belongs to the harness itself, so the kit cannot do it for you:
+
+| Harness | What to do |
 |---|---|
-| Codex | mở Codex trong dự án, chạy `/hooks` và tin cậy hook của agent-work-kit |
-| Pi | chọn tin cậy dự án khi Pi hỏi lần đầu |
-| các harness khác | không cần gì |
+| Codex | open Codex in the project, run `/hooks` and trust the agent-work-kit hooks |
+| Pi | choose to trust the project when Pi asks the first time |
+| Others | nothing |
 
-**3. Làm việc như bình thường.** Cứ nói với agent bạn cần gì. Mọi thứ trên bàn tự diễn ra:
+**3. Work as usual.** Tell the agent what you need. The desk follows along:
 
-| Bạn nói | Bàn tự làm |
+| You say | The desk does |
 |---|---|
-| "làm màn hình đăng nhập" | thành việc đang làm, kèm điều kiện "xong" do agent suy ra |
-| "gấp", "quan trọng" | việc được nhắc tới lên P0 |
-| "để sau", "tuần sau" | vào hàng chờ với mức thấp, không làm ngay |
-| "chờ anh A gửi API" | việc chuyển sang **Chờ**, rồi tự quay lại khi có điều kiện |
-| "bỏ cái đó đi" | việc bị huỷ, kèm lời của bạn làm lý do; lấy lại được |
-| "nhớ: luôn build bằng scheme Lumen-Dev" | được lưu vào bộ nhớ ngay, phiên sau vẫn nhớ |
-| "sai rồi, đừng sửa file đó" | thành một bài học; gặp lại lần hai thì agent đề xuất cách sửa tận gốc |
-| "ok" (khi agent hỏi một đề xuất) | đề xuất được duyệt, kèm nguyên văn lời bạn |
-| "chia việc cho đội làm song song" | agent hỏi bạn đúng một câu, rồi mới mở worker |
+| "build the login screen" | becomes the task in progress, with a done condition the agent infers |
+| "urgent", "important" | the task you mention moves to P0 |
+| "later", "next week" | queued at low priority, not started now |
+| "waiting for Alex to send the API" | the task moves to **waiting**, and returns on its own when unblocked |
+| "drop that" | the task is dropped, with your words as the reason; recoverable |
+| "remember: always build with scheme Lumen-Dev" | saved to memory immediately; remembered next session |
+| "wrong, don't edit that file" | recorded as a lesson; if it recurs, the agent proposes a root-cause fix |
+| "ok" (answering a proposal) | proposal approved, with your exact words attached |
+| "split this across the team" | the agent asks you one question, then opens workers |
 
-**4. Xem bàn bất cứ lúc nào:**
-- `.desk/desk.html`: **dashboard điều hành**, mở bằng trình duyệt, tự làm mới mỗi 10 giây (xem mục [Dashboard](#dashboard));
-- `.desk/DESK.md`: bản đọc nhanh, có trong git;
-- `npx github:nguyennamkkb/agent-work-kit desk`: xem ngay trong terminal.
+**4. Look at the desk any time:**
 
-**5. Yên tâm.** Không có gì mất hẳn: xoá được hoàn tác, việc huỷ vẫn nằm trong archive. Push, merge, xoá worktree, mở worker đều phải hỏi bạn trước. Kit chỉ ghi vào thư mục dự án. Chi tiết ở mục [An toàn](#an-toàn).
+- `.desk/desk.html`: the dashboard, opened in a browser, refreshes every 10 seconds ([details](#the-dashboard));
+- `.desk/DESK.md`: a quick read, tracked in git;
+- `npx github:nguyennamkkb/agent-work-kit desk`: the same view in the terminal.
 
----
+## How it works
 
-## Cái bàn hoạt động thế nào
+The desk is one data file, `.desk/desk.json`. The agent changes it only through one command, `node .agentkit/desk.mjs <command>`, one line at a time, and never edits the file by hand. This gives three guarantees:
 
-Bàn là một file dữ liệu, `.desk/desk.json`. Agent chỉ thay đổi nó bằng một lệnh, `node .agentkit/desk.mjs <lệnh>`, mỗi lần một dòng. Agent không mở hay tự sửa file. Nhờ vậy:
-- mỗi thao tác chỉ tốn khoảng 20 token;
-- dữ liệu không bao giờ sai định dạng;
-- lần nào cũng có lịch sử và hoàn tác được.
+- each operation costs about 20 tokens;
+- the data can never become malformed;
+- every change has history and can be undone.
 
-### Vòng đời một việc
+### Task lifecycle
 
 ```
  inbox ──▶ todo ──▶ doing ──▶ (review) ──▶ done
              ▲  │     │
              │  ▼     ▼
-           waiting   dropped (có lý do · undo được) · failed
+           waiting   dropped (with a reason, undoable) · failed
 ```
 
-| Trạng thái | Nghĩa |
+| State | Meaning |
 |---|---|
-| `inbox` | ghi nhanh, chưa phân loại (phải sắp xếp trước khi kết thúc phiên) |
-| `todo` | trong hàng chờ, sắp theo P0 → P3, rồi theo số lần được nhắc |
-| `doing` | đang làm. Agent chính chỉ làm **một** việc; worker có thể chạy song song |
-| `waiting` | chờ bạn, chờ một việc khác, chờ bên ngoài hoặc tới một ngày; tự quay lại `todo` khi đủ điều kiện |
-| `review` | worker báo xong, agent chính đang kiểm |
-| `done` | xong, **luôn kèm bằng chứng** (lệnh kiểm đã chạy, sha của commit) |
-| `dropped` · `failed` | huỷ hoặc thất bại, luôn kèm lý do |
+| `inbox` | quick capture, not yet triaged (must be sorted before the session ends) |
+| `todo` | queued, ordered P0 to P3, then by how often it was mentioned |
+| `doing` | in progress. The lead agent works on **one** task; workers may run in parallel |
+| `waiting` | blocked on you, another task, an outside party, or a date; returns to `todo` automatically |
+| `review` | a worker reports done; the lead agent is checking |
+| `done` | finished, **always with proof** (the check command that ran, a commit sha) |
+| `dropped`, `failed` | cancelled or failed, always with a reason |
 
-### Những gì bàn tự làm, không tốn token của agent
+### What the desk does by itself, at no token cost
 
-- **Đầu phiên:** hiện mặt bàn gọn, khoảng 100 token, gồm mục tiêu, việc đang làm, việc đang chờ, việc kế, điều cần nhớ.
-- **Tự sắp xếp:**
-  - việc 5 phiên không ai đụng tới thì tụt một bậc ưu tiên, việc P3 cũ thì bị huỷ (lấy lại được);
-  - điều được nhắc từ 3 lần trở lên thì được ghim vào bộ nhớ;
-  - việc đang chờ thì tự quay lại khi tới hạn.
-- **Đọc câu của bạn:** tự lưu "nhớ…" và lời sửa sai, tự nâng ưu tiên khi bạn nói "gấp". Câu bình thường thì im lặng, tốn 0 token.
-- **Trước khi agent dừng:** nhắc một lần nếu hộp vào còn việc, nếu code đã đổi mà bàn chưa ghi, hoặc nếu còn báo cáo của worker chưa kiểm.
-- **Việc lớn:** `split` chia thành các việc con chạy theo thứ tự. Việc cha tự xong khi mọi việc con xong.
+- **Session start:** shows a compact desk of about 100 tokens: goal, current task, waiting items, next items, things to remember.
+- **Housekeeping:**
+  - a task nobody touches for 5 sessions drops one priority level; an old P3 is dropped (recoverable);
+  - anything mentioned 3 or more times is pinned to memory;
+  - waiting tasks return on their due date.
+- **Reading what you say:** saves "remember…" and corrections, raises priority when you say "urgent". Ordinary messages cost 0 tokens.
+- **Before the agent stops:** reminds once if the inbox is not empty, if code changed but the desk was not updated, or if a worker report is unchecked.
+- **Large tasks:** `split` breaks a task into subtasks that run in order; the parent completes when all children do.
 
-### Mức ưu tiên được suy ra từ cách bạn làm việc
+### Priority, inferred from how you work
 
-| | Khi nào |
+| | When |
 |---|---|
-| P0 | chặn mục tiêu hoặc gây hại ngay; bạn nói gấp/quan trọng, hoặc nhắc 2 lần trong một phiên |
-| P1 | đẩy mục tiêu tiến lên; điều bạn yêu cầu trong phiên này |
-| P2 | hữu ích nhưng đợi được; "để sau", ý tưởng của agent |
-| P3 | có thì tốt |
+| P0 | blocks the goal or causes harm now; you said urgent or important, or mentioned it twice in a session |
+| P1 | moves the goal forward; what you asked for in this session |
+| P2 | useful but can wait; "later", the agent's own ideas |
+| P3 | nice to have |
 
----
+## The dashboard
 
-## Dashboard
+`.desk/desk.html` is a single file: no server, no network, open it straight in a browser. It follows the system light or dark setting, works on a phone, and refreshes every 10 seconds while keeping your filters, tab and scroll position. Open it and three questions are answered at once.
 
-`.desk/desk.html` là một file duy nhất: không cần server hay mạng, mở thẳng trong trình duyệt. Sáng/tối theo hệ thống, dùng được trên điện thoại. File tự làm mới mỗi 10 giây mà vẫn giữ bộ lọc, tab và vị trí đang xem. Mở ra là trả lời ngay ba câu hỏi:
-
-| Phần | Cho bạn biết |
+| Section | Tells you |
 |---|---|
-| **Đèn sức khoẻ** | xanh / vàng / đỏ, kèm lý do (việc thất bại, worker im lặng, câu hỏi chờ quá 30 phút…) |
-| **Chỉ số** | đang làm · hàng chờ · đang chờ · chờ kiểm · xong trong 7 ngày (kèm biểu đồ) · cycle time trung vị · tỉ lệ làm lại |
-| **Cần bạn** | câu hỏi của worker, báo cáo chờ kiểm, đề xuất chờ duyệt, việc thất bại, việc chờ bạn, hộp vào. Mỗi mục kèm lệnh, bấm một cái là chép |
-| **Đội** | mỗi worker một thẻ: vai trò, agent·model, việc, plan, worktree, chạy bao lâu, ghi chú gần nhất, file, lease, sha; cảnh báo **im lặng > 15 phút**, đang hỏi; vai trò nào rảnh |
-| **Dòng thời gian** | mỗi vai trò một làn, xem 24 giờ hoặc 7 ngày: ai làm gì, lúc nào, có chạy song song thật không |
-| **Plan** | tiến độ theo màu (xong · chờ kiểm · đang làm · đang chờ), trạng thái worktree |
-| **Hiệu quả model** | số lần chạy, đang chạy, xong, thất bại, tỉ lệ thành công, cycle time theo từng model, để chỉnh routing |
-| **Board** | kanban lọc theo plan, vai trò, agent, có ô tìm kiếm, giới hạn số việc đang làm |
-| **Hoạt động** | 60 sự kiện gần nhất: giao việc, hỏi, trả lời, báo xong, lease… |
-| **Kiến thức** | bộ nhớ, bài học, đề xuất, lease |
+| **Health light** | green, yellow or red, with the reason (a failed task, a silent worker, a question waiting over 30 minutes…) |
+| **Metrics** | doing, queued, waiting, in review, done in 7 days (with a chart), median cycle time, rework rate |
+| **Needs you** | worker questions, reports to check, proposals to approve, failed tasks, tasks waiting on you, the inbox. Each item carries its command, one click to copy |
+| **Team** | one card per worker: role, agent and model, task, plan, worktree, running time, latest note, files, lease, sha; warns on **silent > 15 minutes** and on open questions; shows which roles are idle |
+| **Timeline** | one lane per role, over 24 hours or 7 days: who worked on what, and whether work truly ran in parallel |
+| **Plans** | progress by colour (done, in review, doing, waiting) and worktree state |
+| **Model performance** | runs, active, done, failed, success rate and cycle time per model, for tuning routing |
+| **Board** | kanban filtered by plan, role or agent, with search and a work-in-progress limit |
+| **Activity** | the 60 latest events: dispatch, question, reply, done, lease… |
+| **Knowledge** | memory, lessons, proposals, leases |
 
-Bấm vào bất kỳ việc nào để xem chi tiết: lịch sử đầy đủ, route, brief, bằng chứng, sha, phụ thuộc, việc con. Các chỉ số được tính sẵn trong kit (có test); trang chỉ hiển thị.
+Click any task for full detail: history, route, brief, proof, sha, dependencies and subtasks. Metrics are computed inside the kit (and tested); the page only displays them.
 
----
+## Team mode
 
-## Làm việc theo đội
+> Requires [Orca](https://github.com/stablyai/orca) and `git`. Without Orca the desk still works fully for a single agent and the harness's own subagents.
 
-> Phần này cần [Orca](https://github.com/stablyai/orca) và `git`. Không có Orca thì bàn vẫn chạy đủ cho một agent và subagent của harness.
+The agent picks the **cheapest tier that is enough** and climbs only on evidence (more than about 3 files, more than about 15 tool calls, or a second red build):
 
-Agent chọn **tầng rẻ nhất mà vẫn đủ**, và chỉ leo tầng khi có bằng chứng (quá ~3 file, quá ~15 lần gọi công cụ, hoặc build đỏ lần thứ hai):
-
-| Tầng | Ai làm | Ở đâu | Dùng cho |
+| Tier | Who works | Where | Use for |
 |---|---|---|---|
-| T0 | agent chính | checkout hiện tại | 1–3 file, rõ ràng |
-| T1 | subagent của harness | checkout hiện tại | đọc nhiều, khảo sát, review chỉ đọc |
-| T2 | một worker Orca | checkout hiện tại hoặc worktree của plan | một module, build nhiều lần, chạy lâu |
-| T3 | engineer + tester | worktree riêng của plan | nhiều module, cần cổng test, chạy cạnh plan khác |
-| T4 | mỗi plan một lead | mỗi plan một worktree | từ 2 plan trở lên cùng lúc |
+| T0 | the main agent | current checkout | 1–3 clear files |
+| T1 | harness subagent | current checkout | heavy reading, surveys, read-only review |
+| T2 | one Orca worker | current checkout or the plan's worktree | one module, repeated builds, long runs |
+| T3 | engineer + tester | the plan's own worktree | several modules, needs a test gate, runs beside another plan |
+| T4 | one lead per plan | one worktree per plan | two or more plans at once |
 
-**Quy trình cố định:** plan → việc → giao → kiểm → đóng.
+**A fixed workflow:** plan, task, dispatch, verify, close.
 
-1. **Plan:** `desk plan login --goal "…"` tạo file plan gồm quyết định, chữ ký hàm, thứ tự các bước, file của từng bước, tiêu chí xong.
-2. **Việc:** mỗi lần giao là một việc trên bàn, ghi rõ file nó sở hữu. Hai việc đang mở không được giữ chung một file.
-3. **Giao:** `desk dispatch Q-9`. Lệnh này tự chọn agent và model theo routing, tự viết brief cho worker, mở worker trong worktree của plan và ghi lại mọi thứ. Lần đầu mở worker trong một phiên, **agent phải hỏi bạn trước**, và lệnh từ chối chạy nếu chưa có câu trả lời của bạn.
-4. **Không chờ:** giao xong thì agent kết thúc lượt. Orca đánh thức agent khi worker báo cáo; `desk mail` đọc thư và cập nhật bàn.
-5. **Kiểm rồi mới tính là xong:** kiểm sha có thật, đọc diff so với plan, rồi mới `done`.
-6. **Cổng merge:** `desk gate login` kiểm:
-   - mọi việc đã đóng;
-   - tester xanh trên HEAD hiện tại;
-   - nhánh đã rebase lên main;
-   - worktree sạch.
+1. **Plan.** `desk plan login --goal "…"` creates a plan file: decisions, function signatures, step order, files per step, done criteria.
+2. **Task.** Each assignment is a task on the desk that names the files it owns. Two open tasks may not hold the same file.
+3. **Dispatch.** `desk dispatch Q-9` picks the agent and model from the routing table, writes the worker brief, opens the worker in the plan's worktree and records everything. The first time in a session, **the agent must ask you**, and the command refuses to run without your answer.
+4. **Don't wait.** After dispatching, the agent ends its turn. Orca wakes it when a worker reports; `desk mail` reads the mail and updates the desk.
+5. **Verify before done.** Check that the sha exists, read the diff against the plan, then mark `done`.
+6. **Merge gate.** `desk gate login` checks that every task is closed, the tester is green on the current HEAD, the branch is rebased on main and the worktree is clean. Merge happens only when you agree.
 
-   Chỉ merge khi bạn đã đồng ý merge.
+**One name for a plan, used in four places:** the file `plans/<date>-login.md`, the worktree `plan-login`, the branch `plan/login`, and tasks tagged `--plan login`.
 
-**Mỗi plan một tên, dùng ở bốn nơi:** file `plans/<ngày>-login.md`, worktree `plan-login`, nhánh `plan/login`, và các việc có `--plan login`.
+**Guard rails that keep the team on course:**
 
-**Các quy tắc giữ đội đúng hướng:**
-- **Lease:** tài nguyên độc quyền (ví dụ simulator iOS) chỉ một tester được giữ tại một thời điểm.
-- **Triage 4 loại** cho mỗi báo cáo đỏ:
-  1. môi trường: chạy lại;
-  2. lỗi trong plan: giao cho fixer;
-  3. thiếu sót thiết kế: dừng lại, quyết định;
-  4. không thuộc plan: ghi nhận.
-- **Hai vòng sửa:** sau 2 vòng sửa thất bại, agent leo thang lên model mạnh hơn hoặc tự làm.
-- **Tạm dừng có kỷ luật:** `PAUSE`, `RESUME`, `REBASE`, `ABORT`. Worker commit phần dở rồi mới dừng.
-- **Giới hạn:** tối đa 3 worker và 3 worktree (đổi được).
+- **Leases.** An exclusive resource (for example an iOS simulator) can be held by one tester at a time.
+- **Four-way triage** for every red report: environment (rerun), a bug in the plan (send to a fixer), a design gap (stop and decide), or out of scope (note it).
+- **Two fix rounds.** After two failed rounds the agent escalates to a stronger model or does it itself.
+- **Disciplined pausing:** `PAUSE`, `RESUME`, `REBASE`, `ABORT`. A worker commits its partial work before stopping.
+- **Limits:** at most 3 workers and 3 worktrees (configurable).
 
-**Routing** nằm trong `.desk/team.json`. Ứng viên có dạng `agent[:model][@effort]`, ví dụ `claude:claude-sonnet-5-5@low` hoặc `omp:provider/model@high`. Mặc định được sinh từ các agent CLI có trên máy bạn, dùng model mặc định của từng agent. Lệnh `desk team check --live` kiểm routing với danh sách model thật.
+**Routing** lives in `.desk/team.json`. Candidates look like `agent[:model][@effort]`, for example `claude:claude-sonnet-5-5@low` or `omp:provider/model@high`. Defaults are generated from the agent CLIs installed on your machine, using each agent's default model. `desk team check --live` validates routing against the real model list.
 
-Hướng dẫn đầy đủ cho agent: [`kit/method/docs/team.md`](kit/method/docs/team.md). Trong dự án, file này nằm ở `.agentkit/docs/team.md`.
+The full guide for agents is [`kit/method/docs/team.md`](kit/method/docs/team.md), installed as `.agentkit/docs/team.md`.
 
----
+## Safety
 
-## An toàn
-
-| Nỗi lo | Kit xử lý thế nào |
+| Concern | How the kit handles it |
 |---|---|
-| Agent xoá nhầm việc | `drop` bắt buộc có lý do và lưu vào archive; `desk undo` lùi được 30 bước |
-| Agent tự ý làm việc lớn | push, merge, force, deploy, thêm/bỏ dependency, mở worker đầu tiên: đều phải hỏi bạn. Claude Code còn được cấu hình quyền "ask" cho `git push`, `rm -rf`, `git reset --hard`… |
-| Agent tự đổi luật | đổi luật, công cụ hay cấu trúc phải qua đề xuất có bằng chứng, và chỉ được duyệt khi có nguyên văn lời đồng ý của bạn |
-| Đội agent tranh nhau sửa file | mỗi file chỉ một việc sở hữu; file của lead (ví dụ `project.pbxproj`) chỉ agent chính được sửa |
-| Merge code chưa kiểm | cổng merge đòi tester xanh trên đúng HEAD hiện tại; bỏ plan thì in ra sha để khôi phục |
-| Tốn tiền vì worker chạy vô tội vạ | tối đa 3 worker; sau 2 lần thất bại thì dừng giao; chặn model khớp mẫu `deny` (mặc định `*free*`) |
-| Kit làm hỏng dự án | kit chỉ ghi trong vùng `agentkit:start/end`, merge JSON chứ không ghi đè; `remove` trả mọi file về đúng từng byte |
-| Kit ghi lung tung trên máy | **chỉ ghi vào thư mục dự án**, và tự dọn cache của `npx` sau mỗi lần chạy |
-| Dùng lâu thì file phình to | không đổi gì thì không ghi gì; việc hook chỉ đếm số lần nhắc tới thì chỉ ghi `desk.json`; journal tối đa 256 KB; archive chia theo tháng, chỉ lưu bản tóm tắt; đầu phiên tự dọn memory và bài học cũ (lấy lại bằng `restore`) và brief cũ của worker |
-| Plugin lỗi làm treo harness | mọi plugin và hook đều "fail open": có lỗi thì harness vẫn chạy bình thường |
+| The agent deletes a task by mistake | `drop` requires a reason and is archived; `desk undo` goes back 30 steps |
+| The agent takes on big actions unasked | push, merge, force, deploy, adding or removing dependencies and opening the first worker all require asking you. Claude Code is also configured with "ask" permissions for `git push`, `rm -rf`, `git reset --hard` and similar |
+| The agent rewrites its own rules | a change to rules, tools or structure needs a proposal with evidence, approved only with your exact words |
+| Agents fight over files | each file is owned by one task; lead files (for example `project.pbxproj`) are edited only by the lead agent |
+| Unchecked code gets merged | the gate needs a green tester on the exact current HEAD; abandoning a plan prints the sha for recovery |
+| Workers run up a bill | at most 3 workers; dispatch stops after 2 failures; models matching a `deny` pattern (default `*free*`) are blocked |
+| The kit damages your project | it writes only inside the `agentkit:start/end` region and merges JSON instead of overwriting; `remove` restores every file byte for byte |
+| The kit writes elsewhere on your machine | it writes **only inside the project directory** and cleans its own `npx` cache after every run |
+| Files grow over time | nothing changes means nothing is written; the journal is capped at 256 KB; the archive is split by month and stores summaries; old memory, lessons and worker briefs are pruned at session start (recoverable with `restore`) |
+| A plugin error hangs the harness | every plugin and hook fails open: on error the harness keeps running normally |
 
----
+## Supported harnesses
 
-## Chi phí token
+Four mechanisms: show the desk at session start, read your messages, block bad writes, remind before stopping. All four share one set of scripts in `.agentkit/hooks/`. Each harness connects through its own native mechanism:
 
-Đo trên dự án demo, ước lượng 4 ký tự ≈ 1 token:
-
-| | Trước (v1) | Bây giờ |
-|---|---|---|
-| Cập nhật bàn một lần | ~300–500 (đọc rồi sửa file markdown) | **~20–25** (một lệnh, một dòng kết quả) |
-| Câu gõ bình thường | ~46 | **0** |
-| Câu "nhớ…" hoặc lời sửa sai | agent tự ghi (~400) | hook tự ghi, agent chỉ nhận ~30–50 |
-| Mặt bàn đầu phiên | ~83 | ~100 (thêm việc chờ và trạng thái đội) |
-| `AGENTS.md` + skill (cố định mỗi phiên) | ~2.950 | ~2.170 (phương pháp ~1.190 + 7 luật nghề ~650 + `AGENTS.md` ~330) |
-| Hướng dẫn đội | – | ~2.000, **chỉ đọc khi dùng worker** |
-
-Phần cố định được harness cache lại nên rẻ hơn nhiều sau lần đầu. Phần lớn chi phí trước đây nằm ở các lần cập nhật bàn, và phần đó đã giảm khoảng 95%.
-
-**Đọc ghi file khi dùng lâu dài:**
-- Một câu gõ bình thường chỉ ghi tối đa một dòng journal nhỏ, cộng `desk.json` nếu câu đó nhắc tới một mục; mỗi mục chỉ được đếm một lần mỗi ngày.
-- Dashboard và `DESK.md` chỉ được vẽ lại khi bàn thật sự thay đổi.
-- Sau một năm, `.desk/` vào khoảng 1–2 MB, thay vì hàng chục MB nếu cứ ghi thêm mãi.
-
----
-
-## Harness được hỗ trợ
-
-Có bốn cơ chế: hiện bàn đầu phiên, đọc câu của bạn, chặn ghi sai, nhắc trước khi dừng. Cả bốn dùng chung một bộ script trong `.agentkit/hooks/`. Mỗi harness nối vào bằng cơ chế native của nó:
-
-| Harness | Cách nối | Skill | Bàn | Đọc câu | Chặn ghi sai | Nhắc khi dừng |
+| Harness | Integration | Skill | Desk | Reads messages | Blocks bad writes | Reminds on stop |
 |---|---|---|---|---|---|---|
-| Claude Code | hook trong `.claude/settings.json` | `.claude/skills/desk/` | ✓ | ✓ | ✓ | ✓ |
-| Codex | hook trong `.codex/hooks.json` | `.agents/skills/desk/` | ✓ | ✓ | ✓ | ✓ |
+| Claude Code | hooks in `.claude/settings.json` | `.claude/skills/desk/` | ✓ | ✓ | ✓ | ✓ |
+| Codex | hooks in `.codex/hooks.json` | `.agents/skills/desk/` | ✓ | ✓ | ✓ | ✓ |
 | Pi | extension `.pi/extensions/agentkit-desk.js` | `.agents/skills/desk/` | ✓ | ✓ | ✓ | ✓ |
 | Oh My Pi | extension `.omp/extensions/agentkit-desk.js` | `.agents/skills/desk/` | ✓ | ✓ | ✓ | ✓ |
 | OpenCode | plugin `.opencode/plugins/agentkit-desk/` | `.agents/skills/desk/` | ✓ | ✓ | ✓ | ✓ |
-| Cursor | rule `.cursor/rules/agentkit-desk.mdc` | (chính rule đó) | checklist | – | – | – |
+| Cursor | rule `.cursor/rules/agentkit-desk.mdc` | (the rule itself) | checklist | – | – | – |
 
-- Mọi harness đều đọc `AGENTS.md`; Claude Code đọc qua dòng `@AGENTS.md` trong `CLAUDE.md`.
-- Plugin và extension chỉ dùng thư viện có sẵn của Node, không import gì từ bên ngoài, kể cả SDK của chính harness.
-- Worker Orca có thể là bất kỳ agent nào Orca hỗ trợ: claude, codex, omp, pi, opencode, cursor…
+- Every harness reads `AGENTS.md`; Claude Code reads it through an `@AGENTS.md` line in `CLAUDE.md`.
+- Plugins and extensions use only Node built-ins and import nothing from outside, not even the harness's own SDK.
+- Orca workers can be any agent Orca supports: claude, codex, omp, pi, opencode, cursor.
 
----
+## Rules and self-improvement
 
-## Luật: ba lớp, cập nhật theo ID
+Rules come in three layers, resolved by ID:
 
-1. **Phương pháp bàn** (`kit/method/SKILL.md`): giống nhau cho mọi nghề.
-2. **Gói nghề** (`kit/profession/<nghề>/rules.md`): mỗi luật có ID, mức ưu tiên, lý do và cách kiểm.
+1. **Desk method** (`kit/method/SKILL.md`): the same for every profession.
+2. **Profession pack** (`kit/profession/<name>/rules.md`): each rule has an ID, a priority, a reason and a way to check it.
 
    ```markdown
    ### IOS-001 · P0
@@ -259,83 +270,101 @@ Có bốn cơ chế: hiện bàn đầu phiên, đọc câu của bạn, chặn 
    - Check: test output appears in the session before "done".
    ```
 
-3. **Luật dự án** (`.desk/rules.local.md`): ghi đè (`override`), tắt (`off`) hoặc thêm (`LOCAL-001 · P2`) theo ID. Luật nào cũng phải dẫn một đề xuất đã được duyệt.
+3. **Project rules** (`.desk/rules.local.md`): override, switch off, or add (`LOCAL-001 · P2`) by ID. Every rule must cite an approved proposal.
 
-Thứ tự ưu tiên: luật dự án > luật nghề > phương pháp bàn.
+Precedence: project rules, then profession rules, then the desk method.
 
-**Tự cải tiến:**
-1. Một bài học gặp từ 2 lần trở lên → agent viết đề xuất (`desk propose …`), gồm bằng chứng, thay đổi cụ thể, chỉ số thành công và cách gỡ.
-2. Agent hỏi bạn một câu. Bạn trả lời "ok" → đề xuất được duyệt.
-3. Agent áp dụng, rồi commit.
+**Self-improvement loop:**
 
-**Cập nhật kit:** chạy `npx github:nguyennamkkb/agent-work-kit update`.
-- Kit so từng luật theo ID: luật mới được thêm, luật đổi được áp dụng.
-- Luật mà dự án đang ghi đè thì được giữ nguyên. Kit để lại một ghi chú, và agent báo bạn một lần.
-- Bàn v1 (các file markdown) được tự chuyển sang `desk.json`; file cũ được giữ trong `.desk/archive/v1/`.
+1. A lesson seen twice or more leads the agent to write a proposal (`desk propose …`) with evidence, the concrete change, a success metric and how to roll it back.
+2. The agent asks you one question. Answer "ok" and the proposal is approved.
+3. The agent applies it and commits.
 
----
+**Updating the kit:** run `npx github:nguyennamkkb/agent-work-kit update`.
 
-## Lệnh
+- The kit diffs each rule by ID: new rules are added, changed rules are applied.
+- A rule your project overrides is kept as is. The kit leaves a note, and the agent tells you once.
+- A v1 desk (markdown files) is migrated to `desk.json` automatically; the old files are kept in `.desk/archive/v1/`.
 
-**Cài đặt** (`npx github:nguyennamkkb/agent-work-kit <lệnh>`):
+## Command reference
 
-| Lệnh | Việc |
+**Installer** (`npx github:nguyennamkkb/agent-work-kit <command>`):
+
+| Command | Purpose |
 |---|---|
-| `init --<nghề>` | dựng bàn, cài luật nghề và hook cho các harness |
-| `switch --<nghề>` | đổi nghề, giữ nguyên bàn; cũng dùng để thêm harness (`switch --codex`) |
-| `update` | cập nhật kit và luật nghề (so theo ID); chuyển bàn v1 sang v2 |
-| `desk <lệnh>` | lệnh bàn (bảng dưới), dành cho người |
-| `review` | xem và duyệt đề xuất trong terminal (không bắt buộc; bình thường bạn trả lời ngay trong chat) |
-| `doctor` | kiểm tra cài đặt: file của kit, bàn, đội, routing, công cụ của nghề |
-| `remove` | gỡ kit, trả file của bạn về đúng như cũ; giữ `.desk/` trừ khi có `--purge-desk` |
-| `list` | liệt kê nghề và harness |
+| `init --<profession>` | set up the desk, install profession rules and hooks for your harnesses |
+| `switch --<profession>` | change profession, keeping the desk; also adds a harness (`switch --codex`) |
+| `update` | update the kit and profession rules (by ID); migrate a v1 desk to v2 |
+| `desk <command>` | the desk command (table below), for humans |
+| `review` | review and approve proposals in the terminal (optional; normally you answer in chat) |
+| `doctor` | check the installation: kit files, desk, team, routing, profession tools |
+| `remove` | uninstall the kit and restore your files; keeps `.desk/` unless `--purge-desk` |
+| `list` | list professions and harnesses |
 
-**Lệnh bàn** (agent gọi `node .agentkit/desk.mjs <lệnh>`; bạn gọi `npx … desk <lệnh>`):
+**Desk commands** (agents call `node .agentkit/desk.mjs <command>`; you call `npx … desk <command>`):
 
-| Nhóm | Lệnh |
+| Group | Commands |
 |---|---|
-| Xem | `status` · `list [--all]` · `show Q-7` · `log` · `compact` |
-| Việc | `add [P0-3] "…" [--done "kiểm chứng"] [--now] [--files a,b] [--deps Q-1] [--plan slug] [--role r]` · `edit Q-7 --prio/--text/--done/--files …` · `start Q-7` · `next "bước kế"` |
-| | `wait Q-7 --on user\|Q-3\|"ai" [--until YYYY-MM-DD]` · `resume Q-7` · `done [Q-7] --proof "…"` · `drop Q-7 --why "…"` · `split Q-7 "a" "b"` · `undo` · `restore Q-7` (lấy lại từ archive) |
-| Nhớ, học | `remember "…" [--pin]` · `forget M-2 --why` · `lesson "…"` · `propose "…" --change … --why …` · `approve P-001 --quote "…"` |
-| Hướng | `goal "đích" "cách biết đã tới"` · `inbox "…"` · `file Q-9 task\|memory\|lesson` |
-| Đội | `team [check\|allow\|set]` · `plan slug` · `route vai-trò` · `dispatch Q-9` · `mail` · `reply Q-9 "…"` · `send Q-9 --subject PAUSE` · `sync --apply` · `fleet` · `lease` · `wt status\|open\|park\|close\|drop\|tidy` · `gate slug` |
+| View | `status` · `list [--all]` · `show Q-7` · `log` · `compact` |
+| Tasks | `add [P0-3] "…" [--done "check"] [--now] [--files a,b] [--deps Q-1] [--plan slug] [--role r]` · `edit Q-7 --prio/--text/--done/--files …` · `start Q-7` · `next "next step"` |
+| | `wait Q-7 --on user\|Q-3\|"who" [--until YYYY-MM-DD]` · `resume Q-7` · `done [Q-7] --proof "…"` · `drop Q-7 --why "…"` · `split Q-7 "a" "b"` · `undo` · `restore Q-7` (recover from the archive) |
+| Memory and learning | `remember "…" [--pin]` · `forget M-2 --why` · `lesson "…"` · `propose "…" --change … --why …` · `approve P-001 --quote "…"` |
+| Direction | `goal "target" "how we know we arrived"` · `inbox "…"` · `file Q-9 task\|memory\|lesson` |
+| Team | `team [check\|allow\|set]` · `plan slug` · `route role` · `dispatch Q-9` · `mail` · `reply Q-9 "…"` · `send Q-9 --subject PAUSE` · `sync --apply` · `fleet` · `lease` · `wt status\|open\|park\|close\|drop\|tidy` · `gate slug` |
 | Worker | `worker Q-9 status\|ask\|escalate\|inbox\|lease\|done` |
 
----
-
-## Kit cài gì vào dự án
+## What gets installed
 
 ```
-AGENTS.md                         vùng của kit (giữa agentkit:start/end) + phần của bạn bên dưới
-CLAUDE.md                         @AGENTS.md (nếu dùng Claude Code)
-.agentkit.json                    manifest: version, nghề, luật, hash từng file
-.agentkit/desk.mjs                lệnh bàn
-.agentkit/hooks/                  hook dùng chung + lõi bàn (store) + đội (team) + dashboard
-.agentkit/docs/team.md            hướng dẫn đội (agent chỉ đọc khi dùng worker)
-.claude/skills/desk/SKILL.md      skill duy nhất: phương pháp + luật nghề
-.claude/settings.json             hook + quyền "ask", được merge, không ghi đè
-.agents/skills/desk/SKILL.md      cùng skill, cho Codex, Pi, Oh My Pi, OpenCode
-.codex/hooks.json · .pi/extensions/ · .omp/extensions/ · .opencode/plugins/ · .cursor/rules/   (theo harness)
-.mcp.json                         Figma MCP (chỉ khi --designer)
+AGENTS.md                         the kit's region (between agentkit:start/end) + your own content below
+CLAUDE.md                         @AGENTS.md (when using Claude Code)
+.agentkit.json                    manifest: version, profession, rules, a hash per file
+.agentkit/desk.mjs                the desk command
+.agentkit/hooks/                  shared hooks + desk core (store) + team + dashboard
+.agentkit/docs/team.md            team guide (the agent reads it only when using workers)
+.claude/skills/desk/SKILL.md      the single skill: method + profession rules
+.claude/settings.json             hooks + "ask" permissions, merged, never overwritten
+.agents/skills/desk/SKILL.md      the same skill, for Codex, Pi, Oh My Pi, OpenCode
+.codex/hooks.json · .pi/extensions/ · .omp/extensions/ · .opencode/plugins/ · .cursor/rules/   (per harness)
+.mcp.json                         Figma MCP (only with --designer)
 .desk/
-  desk.json      dữ liệu bàn (commit)          DESK.md       bản để đọc (commit)
-  team.json      hồ sơ đội: build, test, routing (commit)
-  plans/         plan và brief cho worker       review/       đề xuất P-*, ghi chú cập nhật U-*
-  archive/       YYYY-MM.md (để đọc) + YYYY-MM.jsonl (bản tóm tắt)   rules.local.md  luật dự án
-  desk.html · .state.json · .journal.jsonl · .undo/   (không commit, đã có trong .desk/.gitignore)
+  desk.json      desk data (commit)            DESK.md       readable copy (commit)
+  team.json      team profile: build, test, routing (commit)
+  plans/         plans and worker briefs        review/       P-* proposals, U-* update notes
+  archive/       YYYY-MM.md (readable) + YYYY-MM.jsonl (summaries)   rules.local.md  project rules
+  desk.html · .state.json · .journal.jsonl · .undo/   (not committed; already in .desk/.gitignore)
 ```
 
-**Kit chỉ ghi vào thư mục dự án.**
-- Mỗi lệnh chạy qua `npx` xong, kit tự xoá bản sao của chính nó trong `~/.npm/_npx/` và các mục tải về của nó trong cache npm. Muốn giữ lại thì đặt `AGENTKIT_KEEP_CACHE=1`.
-- Ngoài dự án chỉ còn những thứ không do kit tạo: log của npm, và bản ghi tin cậy của Codex, Pi.
-- Worktree của plan do Orca tạo trong thư mục workspace của Orca, và bị xoá khi plan đóng.
+**The kit writes only inside the project directory.**
 
----
+- After every `npx` run, the kit deletes its own copy under `~/.npm/_npx/` and the entries it downloaded from the npm cache. Set `AGENTKIT_KEEP_CACHE=1` to keep them.
+- What remains outside the project is not created by the kit: npm's logs, and the trust records kept by Codex and Pi.
+- A plan's worktree is created by Orca inside Orca's workspace directory and deleted when the plan closes.
 
-## Thêm một nghề
+## Token cost
 
-Tạo thư mục `kit/profession/<tên>/` với hai file.
+Measured on the demo project, estimating 4 characters per token:
+
+| | Before (v1) | Now |
+|---|---|---|
+| One desk update | ~300–500 (read, then edit a markdown file) | **~20–25** (one command, one result line) |
+| An ordinary message | ~46 | **0** |
+| A "remember…" or a correction | the agent writes it (~400) | the hook writes it; the agent receives ~30–50 |
+| Desk at session start | ~83 | ~100 (adds waiting items and team status) |
+| `AGENTS.md` + skill (fixed per session) | ~2,950 | ~2,170 (method ~1,190 + 7 profession rules ~650 + `AGENTS.md` ~330) |
+| Team guide | – | ~2,000, **read only when using workers** |
+
+The fixed part is cached by the harness, so it is much cheaper after the first turn. Most of the old cost came from desk updates, and that part is down by about 95%.
+
+**File I/O over long use:**
+
+- An ordinary message writes at most one small journal line, plus `desk.json` if the message touches an item; each item is counted once per day.
+- The dashboard and `DESK.md` are redrawn only when the desk really changes.
+- After a year, `.desk/` is around 1–2 MB, rather than tens of MB if it kept growing.
+
+## Adding a profession
+
+Create `kit/profession/<name>/` with two files.
 
 **`profession.json`:**
 
@@ -351,47 +380,50 @@ Tạo thư mục `kit/profession/<tên>/` với hai file.
 }
 ```
 
-**`rules.md`:** phần mở đầu (Task, Done, gợi ý ưu tiên, điều đáng nhớ), rồi các luật `### BE-001 · P0`, mỗi luật kèm dòng `- Why:` và `- Check:`.
+**`rules.md`:** an opening section (Task, Done, priority hints, things worth remembering), then rules as `### BE-001 · P0`, each with a `- Why:` and a `- Check:` line.
 
-Xong là cờ `--backend` tự có. Mỗi lần sửa luật, tăng `version` để `update` so đúng. Test tự kiểm mọi gói nghề: ID không trùng, luật nào cũng có `Why` và `Check`, skill ghép xong dưới 220 dòng.
+The `--backend` flag then exists automatically. Bump `version` every time you edit the rules so `update` diffs correctly. Tests check every pack: no duplicate IDs, every rule has `Why` and `Check`, and the combined skill stays under 220 lines.
 
----
-
-## Phát triển
+## Development
 
 ```bash
-npm test                       # 55 test: engine, bàn, hook, đội (với Orca giả), từng harness, CLI
-UPDATE_SNAPSHOTS=1 npm test    # khi cố ý đổi output của adapter
-node bin/cli.js init --ios -y --dir /tmp/demo
+npm test                       # engine, desk, hooks, team (with a fake Orca), each harness, the CLI
+UPDATE_SNAPSHOTS=1 npm test    # when you intentionally change adapter output
+node bin/cli.js init --universal -y --dir /tmp/demo
 ```
 
 ```
-bin/cli.js            điểm vào CLI
+bin/cli.js            CLI entry point
 src/commands/         init, switch, update, desk, review, doctor, remove, list
-src/lib/              engine (ghi file, manifest, so luật theo ID, chuyển bàn v1), marker, merge JSON, tự dọn cache
-src/adapters/         một adapter cho mỗi harness
-kit/method/           SKILL.md, docs/team.md, desk.mjs, hooks/ (_lib, store, team, cli, 5 hook, dashboard), bridge/, desk/ (mẫu)
-kit/profession/       gói nghề: ios, designer, universal
+src/lib/              engine (file writes, manifest, rule diff by ID, v1 migration), markers, JSON merge, cache cleanup
+src/adapters/         one adapter per harness
+kit/method/           SKILL.md, docs/team.md, desk.mjs, hooks/ (_lib, store, team, cli, 5 hooks, dashboard), bridge/, desk/ (template)
+kit/profession/       profession packs: ios, designer, universal
 test/                 kit, desk, storage, team, harness; fixtures/fake-orca.mjs
 ```
 
-## Giới hạn hiện tại
+The technical specification is [DESK-SPEC.md](DESK-SPEC.md).
 
-- Việc nhận ra lời sửa, việc gấp, "để sau" hay lời đồng ý dựa trên từ khoá (tiếng Việt và tiếng Anh), nên có thể bỏ sót hoặc bắt nhầm. Bắt nhầm thì `undo` hoặc `forget` là xong.
-- Mỗi harness đã được kiểm bằng cách nạp đúng file mà kit sinh ra, với API theo hình dạng đã xác minh trên bản cài (Codex 0.171, OpenCode 2.3.2, Pi 1.6.0, omp 18.3.2). Chưa chạy end-to-end với model thật.
-- Phần đội được kiểm bằng một Orca giả trong test, và bằng các lệnh chỉ đọc trên Orca 1.4.268 thật. Quy trình đội (worktree theo plan, lease, triage, cổng merge) được viết lại từ orca-orchestrator, vốn đã chạy thật trên Orca 1.4.246. Chế độ T4 phase A (lead tự mở worker con) bị Orca chặn mặc định.
-- Cursor không có hook, nên chỉ có checklist.
+## Known limitations
 
-## Hỏi đáp
+- Detecting corrections, urgency, "later" and approvals relies on keywords (Vietnamese and English), so it can miss or misfire. If it misfires, `undo` or `forget` fixes it.
+- Each harness was checked by loading the exact files the kit generates, against API shapes verified on installed versions (Codex 0.171, OpenCode 2.3.2, Pi 1.6.0, omp 18.3.2). End-to-end runs with a real model are not yet complete.
+- Team mode is tested with a fake Orca in the test suite, and with read-only commands against real Orca 1.4.268. The workflow (per-plan worktrees, leases, triage, merge gate) is rewritten from orca-orchestrator, which ran for real on Orca 1.4.246. T4 phase A (a lead opening child workers itself) is blocked by Orca by default.
+- Cursor has no hooks, so it gets a checklist only.
+- The `--ios` and `--designer` packs are in preview.
 
-**Tôi có phải học các lệnh không?** Không. Agent tự gọi lệnh. Bảng lệnh dành cho lúc bạn muốn tự xem hoặc tự chỉnh.
+## FAQ
 
-**Agent hiểu sai ý tôi thì sao?** Nói thẳng với agent: "không, việc đó chưa xong", "bỏ việc kia đi". Lời sửa của bạn thành bài học. Lỡ tay thì `desk undo`.
+**Do I have to learn the commands?** No. The agent calls them. The tables are for when you want to look or adjust things yourself.
 
-**Không có Orca thì sao?** Mọi thứ vẫn chạy với một agent, và subagent của harness ở tầng T1. Lệnh đội báo rõ là cần Orca, không làm gì khác.
+**What if the agent misunderstands me?** Tell it plainly: "no, that isn't done", "drop the other task". Your correction becomes a lesson. If you slip, `desk undo`.
 
-**Dữ liệu của tôi đi đâu?** Chỉ nằm trong `.desk/` của dự án. Kit không gửi gì ra ngoài, không ghi vào home, không cần tài khoản.
+**What if I don't have Orca?** Everything works with a single agent, plus harness subagents at tier T1. Team commands say clearly that they need Orca and do nothing else.
 
-**Gỡ thế nào?** `npx github:nguyennamkkb/agent-work-kit remove`. File của bạn trở về đúng như trước khi cài. Thêm `--purge-desk` nếu muốn xoá cả bàn.
+**Where does my data go?** Only into the project's `.desk/`. The kit sends nothing out, writes nothing to your home directory, and needs no account.
 
-Đặc tả kỹ thuật: [DESK-SPEC.md](DESK-SPEC.md) · Kế hoạch: [PLAN-v2.md](PLAN-v2.md), [PLAN-v2.1.md](PLAN-v2.1.md).
+**How do I uninstall?** `npx github:nguyennamkkb/agent-work-kit remove`. Your files return to exactly how they were before install. Add `--purge-desk` to delete the desk too.
+
+## License
+
+MIT, as declared in `package.json`.

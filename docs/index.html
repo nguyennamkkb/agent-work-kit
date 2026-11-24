@@ -1,0 +1,845 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>agent-work-kit: cái bàn làm việc cho coding agent</title>
+<meta name="description" content="Một lệnh đặt cái bàn làm việc (.desk/) vào dự án. Agent nhớ mục tiêu, việc đang làm và bài học qua mọi phiên, chỉ báo xong khi có bằng chứng, và có thể điều cả đội worker song song.">
+<meta name="theme-color" content="#1B5244">
+<meta property="og:type" content="website">
+<meta property="og:title" content="agent-work-kit: phiên nào cũng bắt đầu từ chỗ đã dừng">
+<meta property="og:description" content="Cái bàn làm việc cho coding agent: nhớ việc, chia việc, kiểm bằng chứng. Một lệnh cài, không thư viện phụ thuộc.">
+<meta name="twitter:card" content="summary">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%2064%2064%22%3E%3Crect%20x=%222%22%20y=%222%22%20width=%2260%22%20height=%2260%22%20rx=%229%22%20fill=%22%231B5244%22/%3E%3Cpath%20d=%22M22%202v60M42%202v60M2%2022h60M2%2042h60%22%20stroke=%22%23EDF1EE%22%20stroke-opacity=%22.14%22%20stroke-width=%221.2%22/%3E%3Cg%20transform=%22rotate(-7%2032%2031)%22%3E%3Crect%20x=%2214%22%20y=%2213%22%20width=%2234%22%20height=%2234%22%20rx=%222%22%20fill=%22%23F5D547%22/%3E%3Cpath%20d=%22M23%2031l7%207%2012-14%22%20fill=%22none%22%20stroke=%22%2310201A%22%20stroke-width=%225%22%20stroke-linecap=%22round%22%20stroke-linejoin=%22round%22/%3E%3C/g%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+:root{
+  --mat:#1B5244;
+  --mat-deep:#0F3A2F;
+  --mat-minor:rgba(237,241,238,.07);
+  --mat-major:rgba(237,241,238,.16);
+  --paper:#EDF1EE;
+  --sheet:#FBFCFA;
+  --ink:#10201A;
+  --ink-2:#425449;
+  --rule:#C5D0CA;
+  --note:#F5D547;
+  --stamp:#D9431B;
+  --amber:#B9770E;
+  --ok:#1F7A4D;
+  --display:"Archivo","Arial Narrow",Arial,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --gutter:clamp(16px,4vw,48px);
+  --wrap:1200px;
+}
+*,*::before,*::after{box-sizing:border-box}
+[hidden]{display:none !important}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--display);font-size:1.0625rem;line-height:1.6;-webkit-font-smoothing:antialiased;color-scheme:light}
+img,svg{display:block;max-width:100%}
+a{color:inherit}
+code,.mono{font-family:var(--mono);font-size:.88em}
+p{margin:0}
+h1,h2,h3{margin:0;font-weight:800}
+:focus-visible{outline:3px solid var(--note);outline-offset:3px}
+.sec :focus-visible{outline-color:var(--mat)}
+.skip{position:absolute;left:-999px;top:8px;background:var(--note);color:var(--ink);padding:8px 14px;z-index:10;font-weight:700}
+.skip:focus{left:8px}
+.wrap{width:100%;max-width:var(--wrap);margin-inline:auto;padding-inline:var(--gutter)}
+
+h2{font-stretch:62%;font-size:clamp(2.75rem,6.2vw,5.25rem);line-height:.98;letter-spacing:-.005em;text-wrap:balance}
+h3{font-stretch:100%;font-weight:700;font-size:1.2rem;line-height:1.3}
+.lede{font-size:clamp(1.0625rem,1.5vw,1.25rem);color:var(--ink-2);max-width:56ch;margin-top:1.1rem}
+
+/* ---------- hero ---------- */
+.hero{
+  min-height:100vh;min-height:100svh;display:flex;flex-direction:column;position:relative;overflow:hidden;
+  background-color:var(--mat);color:var(--paper);
+  background-image:
+    linear-gradient(var(--mat-major) 1px,transparent 1px),
+    linear-gradient(90deg,var(--mat-major) 1px,transparent 1px),
+    linear-gradient(var(--mat-minor) 1px,transparent 1px),
+    linear-gradient(90deg,var(--mat-minor) 1px,transparent 1px);
+  background-size:200px 200px,200px 200px,40px 40px,40px 40px;
+  background-position:-1px -1px;
+}
+.nav{display:flex;align-items:center;justify-content:space-between;gap:16px;padding-block:20px}
+.brand{display:inline-flex;align-items:center;gap:10px;font-stretch:62%;font-weight:800;font-size:1.65rem;letter-spacing:.005em;text-decoration:none;line-height:1;min-height:44px}
+.nav .brand{display:inline-flex;padding:0;font-weight:800;font-size:1.65rem}
+.brand .logo{width:34px;height:34px;flex:none}
+.nav ul{display:flex;gap:clamp(14px,2.4vw,32px);list-style:none;margin:0;padding:0;align-items:center}
+.nav a{text-decoration:none;font-weight:500;font-size:.98rem;padding:10px 2px;display:inline-block}
+.nav a:hover{text-decoration:underline;text-underline-offset:5px}
+.nav .gh{border:1.5px solid var(--paper);padding:8px 14px;border-radius:2px;font-weight:600}
+.nav .gh:hover{background:var(--paper);color:var(--mat);text-decoration:none}
+.hero-body{flex:1;display:grid;grid-template-columns:minmax(0,1.08fr) minmax(0,.92fr);gap:clamp(28px,5vw,88px);align-items:center;padding-block:clamp(16px,3vw,40px) clamp(36px,5vw,72px)}
+.hero h1{font-stretch:62%;font-weight:850;font-size:clamp(3.4rem,7vw,6.3rem);line-height:.96;letter-spacing:-.012em;color:var(--paper)}
+.hero h1 span{display:block}
+.hero .sub{text-wrap:balance;margin-top:clamp(18px,2.4vw,30px);font-size:clamp(1.05rem,1.55vw,1.3rem);max-width:46ch;color:#DDE6E0;line-height:1.55}
+.install{margin-top:clamp(22px,3vw,36px);max-width:620px}
+.cmd{display:flex;align-items:stretch;background:var(--mat-deep);border:1.5px solid rgba(237,241,238,.35);border-radius:2px}
+.cmd code{flex:1;min-width:0;padding:14px 16px;font-size:clamp(.78rem,1.2vw,.92rem);white-space:normal;overflow-wrap:anywhere;line-height:1.5;color:var(--paper);display:block}
+.cmd button{flex:none;min-width:140px;min-height:48px;border:0;border-left:1.5px solid rgba(237,241,238,.35);background:var(--note);color:var(--ink);font:700 .95rem var(--display);cursor:pointer}
+.cmd button:hover{background:#FFE46E}
+.cmd button,.copybtn{display:inline-flex;align-items:center;justify-content:center;gap:8px}
+.cmd button svg,.copybtn svg{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.nb{white-space:nowrap}
+.install small{display:block;margin-top:12px;color:#C3D0C8;font-size:.95rem;line-height:1.5}
+
+/* the desk surface */
+.desk{position:relative;padding:clamp(8px,2vw,24px) clamp(0px,1vw,16px) 56px clamp(0px,2vw,28px)}
+.sheet{position:relative;background:var(--sheet);color:var(--ink);border-radius:2px;padding:0 0 22px;transform:rotate(-1.2deg);
+  box-shadow:0 1px 0 rgba(0,0,0,.25),0 30px 50px -18px rgba(0,0,0,.55),0 8px 14px -8px rgba(0,0,0,.35)}
+.sheet-bar{display:flex;justify-content:space-between;gap:12px;padding:14px 22px;border-bottom:1.5px solid var(--ink);font-family:var(--mono);font-size:.78rem}
+.sheet-bar span:last-child{color:var(--ink-2)}
+.rows{padding:12px 22px 4px;font-family:var(--mono);font-size:clamp(.74rem,1.05vw,.86rem);line-height:1.65}
+.row{display:grid;grid-template-columns:5.6em minmax(0,1fr);gap:12px;padding:9px 0;border-bottom:1px dashed var(--rule);animation:print .55s steps(22,end) both;animation-delay:calc(.45s + var(--i)*.3s)}
+.row:last-child{border-bottom:0}
+.row dt{color:var(--ink-2)}
+.row dd{margin:0;overflow-wrap:anywhere}
+.row .sub2{display:block;color:var(--ink-2)}
+.tag{display:inline-block;padding:0 6px;margin-right:6px;border-radius:2px;font-weight:600;font-size:.9em;line-height:1.5}
+.tag.p0{background:var(--stamp);color:#fff}
+.tag.p1{background:var(--ink);color:#fff}
+.tag.p2{background:#DCE4DF;color:var(--ink)}
+.sheet-foot{padding:10px 22px 0;color:var(--ink-2);font-size:.82rem;font-family:var(--display)}
+.note{position:absolute;left:-2%;bottom:0;width:min(210px,44%);background:var(--note);color:var(--ink);padding:16px 16px 18px;transform:rotate(3deg);border-radius:1px;
+  box-shadow:0 14px 22px -10px rgba(0,0,0,.5);animation:appear .5s ease both;animation-delay:1.9s}
+.note b{display:block;font-stretch:62%;font-weight:850;font-size:1.65rem;line-height:1;margin-bottom:6px}
+.note span{font-size:.92rem;line-height:1.4;display:block}
+.stamp{position:absolute;right:-1%;bottom:2px;border:3px solid var(--stamp);color:var(--stamp);background:rgba(251,252,250,.92);padding:8px 14px 10px;border-radius:3px;transform:rotate(-8deg);text-align:left;
+  animation:stamp .38s cubic-bezier(.2,.9,.25,1) both;animation-delay:2.7s}
+.stamp b{display:block;font-stretch:62%;font-weight:850;font-size:1.85rem;line-height:1}
+.stamp span{display:block;font-family:var(--mono);font-size:.72rem;margin-top:4px;color:#8F2D10}
+@keyframes print{from{opacity:0;clip-path:inset(0 100% 0 0)}to{opacity:1;clip-path:inset(0 0 0 0)}}
+@keyframes appear{from{opacity:0}to{opacity:1}}
+@keyframes stamp{0%{opacity:0;transform:rotate(-8deg) scale(1.9)}65%{opacity:1;transform:rotate(-8deg) scale(.95)}100%{opacity:1;transform:rotate(-8deg) scale(1)}}
+
+/* ---------- sections ---------- */
+.sec{padding-block:clamp(64px,8vw,112px)}
+.sec + .sec{border-top:1.5px solid var(--ink)}
+.sec-head{max-width:820px;margin-bottom:clamp(36px,5vw,64px)}
+.split{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:clamp(32px,6vw,96px);align-items:start}
+
+/* forget / remember pairs */
+.why{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:clamp(32px,6vw,96px);align-items:start}
+.why-head{position:sticky;top:32px}
+.pairs{display:grid;gap:clamp(36px,5vw,56px)}
+.pair{position:relative}
+.think{display:inline-block;max-width:min(100%,420px);padding:12px 18px;border:1.5px dashed var(--ink-2);border-radius:18px 18px 18px 2px;color:var(--ink-2);font-size:1.05rem;line-height:1.4;background:var(--paper)}
+.slip::before{content:"";position:absolute;left:34px;top:-26px;width:1.5px;height:26px;background:repeating-linear-gradient(to bottom,var(--ink-2) 0 4px,transparent 4px 8px)}
+.slip{position:relative;margin:26px 0 0 clamp(0px,4vw,56px);background:var(--sheet);border-radius:2px;transform:rotate(var(--r,-.6deg));
+  box-shadow:0 1px 0 rgba(0,0,0,.18),0 20px 30px -16px rgba(16,32,26,.45),0 6px 10px -6px rgba(16,32,26,.3)}
+.pair:nth-child(even) .slip{--r:.7deg;margin-left:clamp(0px,8vw,104px)}
+.slip-bar{display:flex;justify-content:space-between;gap:12px;padding:10px 18px;border-bottom:1.5px solid var(--ink);font-family:var(--mono);font-size:.76rem;color:var(--ink-2)}
+.slip-body{padding:12px 18px 14px;font-family:var(--mono);font-size:clamp(.74rem,1.1vw,.86rem);line-height:1.65}
+.slip-body .r{display:grid;grid-template-columns:5.4em minmax(0,1fr);gap:12px;padding:5px 0}
+.slip-body .r > span:first-child{color:var(--ink-2)}
+.slip-body .r b{font-weight:600}
+.slip-body .ok,.slip-body .no{display:inline-block;margin-left:8px;padding:0 6px;border-radius:2px;font-weight:600;font-size:.85em;font-family:var(--display)}
+.slip-body .ok{background:var(--ok);color:#fff}
+.slip-body .no{background:var(--stamp);color:#fff}
+.slip-body .line{padding:5px 0;overflow-wrap:anywhere}
+.slip-foot{padding:0 18px 14px;font-size:.92rem;color:var(--ink-2);line-height:1.45}
+.slip-foot strong{color:var(--ink);font-weight:700}
+/* dark (mat) sections */
+.dark{background-color:var(--mat);color:var(--paper);border-top:0 !important;
+  background-image:linear-gradient(var(--mat-major) 1px,transparent 1px),linear-gradient(90deg,var(--mat-major) 1px,transparent 1px),linear-gradient(var(--mat-minor) 1px,transparent 1px),linear-gradient(90deg,var(--mat-minor) 1px,transparent 1px);
+  background-size:200px 200px,200px 200px,40px 40px,40px 40px;background-position:-1px -1px}
+.dark h2{color:var(--paper)}
+.dark .lede{color:#DDE6E0}
+.dark code{background:rgba(0,0,0,.28);padding:1px 6px;border-radius:2px}
+
+/* terminal conversation */
+.term{max-width:1040px;background:#0A2A21;color:#DDE8E2;border:1.5px solid rgba(237,241,238,.4);border-radius:4px;box-shadow:12px 12px 0 rgba(0,0,0,.28);overflow:hidden}
+.term-bar{display:flex;align-items:center;gap:14px;padding:12px 18px;border-bottom:1.5px solid rgba(237,241,238,.25);font-family:var(--mono);font-size:.8rem;color:#9DB9AD}
+.term-bar i{display:flex;gap:6px}
+.term-bar i b{width:11px;height:11px;border:1.5px solid rgba(237,241,238,.5);border-radius:50%}
+.term-body{padding:clamp(16px,2.4vw,28px);font-family:var(--mono);font-size:clamp(.78rem,1.15vw,.94rem);line-height:1.7}
+.turn + .turn{margin-top:clamp(14px,1.8vw,22px)}
+.me{display:grid;grid-template-columns:1.6em minmax(0,1fr);color:var(--paper);font-weight:600}
+.me::before{content:"❯";color:var(--note)}
+.out{display:grid;grid-template-columns:1.6em minmax(0,1fr) auto;gap:0 14px;margin-left:1.6em;padding:2px 0;color:#C9D9D1}
+.out::before{content:"✓";color:#7BD6A0;font-weight:600}
+.out .msg b{color:var(--paper);font-weight:600}
+.out .by{color:#8FB3A5}
+.out .cmdx{color:#8FB3A5;white-space:nowrap}
+.out.quiet::before{content:"·";color:#8FB3A5}
+.out.quiet .msg{color:#8FB3A5}
+.tg{display:inline-block;padding:0 7px;border-radius:2px;font-weight:600;font-size:.92em;line-height:1.5}
+.tg.p0{background:var(--stamp);color:#fff}
+.tg.wait{background:var(--note);color:var(--ink)}
+.tg.doing{background:#2C7A64;color:#fff}
+.tg.drop{border:1.5px solid #9DB9AD;color:#C9D9D1}
+.tg.mem{background:var(--paper);color:var(--ink)}
+.cursor{display:inline-block;width:.6em;height:1.1em;background:var(--note);vertical-align:text-bottom;margin-left:2px}
+.term-note{margin-top:20px;max-width:70ch;color:#C3D0C8;font-size:.98rem}
+
+/* lifecycle: life of one task */
+.life{display:grid;grid-template-columns:minmax(0,7fr) minmax(0,5fr);gap:clamp(32px,6vw,96px);align-items:start}
+.tl{list-style:none;margin:0;padding:0}
+.tl li{position:relative;display:grid;grid-template-columns:3.6em 24px minmax(0,1fr);gap:0 16px;padding-bottom:32px}
+.tl li::before{content:"";position:absolute;left:calc(3.6em + 16px + 11px);top:26px;bottom:-2px;width:2px;background:var(--ink)}
+.tl li:last-child{padding-bottom:0}
+.tl li:last-child::before{display:none}
+.tl time{font-family:var(--mono);font-size:.85rem;color:var(--ink-2);padding-top:3px}
+.node{position:relative;z-index:1;width:24px;height:24px;border-radius:50%;border:2px solid var(--ink);background:var(--paper);margin-top:1px}
+.s-doing .node{background:var(--mat);border-color:var(--mat)}
+.s-wait .node{background:var(--note)}
+.s-done .node{background:var(--stamp);border-color:var(--stamp)}
+.s-done::before{left:calc(3.6em + 16px + 11px)}
+.tl .st{display:inline-block;font-family:var(--mono);font-weight:600;font-size:1rem;margin-bottom:2px}
+.tl p{color:var(--ink-2);font-size:1rem;line-height:1.5;max-width:54ch}
+.run{display:inline-block;margin-top:8px;background:#DCE4DF;color:var(--ink);padding:2px 9px;border-radius:2px;font-family:var(--mono);font-size:.8rem;line-height:1.6;overflow-wrap:anywhere}
+.s-done .st{color:var(--stamp);font-size:1.3rem}
+.s-done p{color:var(--ink);font-weight:600;font-size:1.08rem}
+.s-done .run{background:var(--ink);color:var(--paper)}
+.tl-cap{margin-top:28px;font-size:.88rem;color:var(--ink-2)}
+.rules{position:sticky;top:32px;display:grid;gap:0;border-top:1.5px solid var(--ink)}
+.rules > div{padding:20px 0;border-bottom:1px solid var(--rule)}
+.rules h3{margin-bottom:4px}
+.rules p{color:var(--ink-2);line-height:1.5;font-size:1rem}
+.proof{margin-top:26px;display:flex;gap:18px;align-items:flex-start}
+.proof .seal{flex:none;border:3px solid var(--stamp);color:var(--stamp);border-radius:3px;padding:6px 12px 8px;transform:rotate(-5deg);font-stretch:62%;font-weight:850;font-size:1.5rem;line-height:1}
+.proof p{font-size:1.02rem;line-height:1.5;font-weight:500}
+
+/* tiers staircase */
+.tiers{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:clamp(14px,2vw,28px)}
+.tiers li{border-top:1.5px solid rgba(237,241,238,.5);padding-top:18px}
+.tiers svg{width:100%;max-width:176px;height:auto;margin-bottom:14px;overflow:visible}
+.tiers .t{font-family:var(--mono);font-weight:600;color:var(--note);font-size:.95rem}
+.tiers b{display:block;font-size:1.08rem;line-height:1.3;margin:2px 0 6px;color:var(--paper)}
+.tiers .for{display:block;color:#C3D0C8;font-size:.95rem;line-height:1.45}
+.tiers .bx{fill:rgba(0,0,0,.2);stroke:rgba(237,241,238,.6);stroke-width:1.5}
+.tiers .ln{stroke:rgba(237,241,238,.75);stroke-width:1.5;fill:none}
+.tiers .ln.d{stroke-dasharray:3 3}
+.tiers .lead{fill:var(--note)}
+.tiers .wrk{fill:var(--paper)}
+.tiers .ts{fill:none;stroke:var(--paper);stroke-width:2}
+.tiers .sb{fill:none;stroke:var(--paper);stroke-width:1.5;stroke-dasharray:3 3}
+.tiers .pl{fill:none;stroke:var(--note);stroke-width:2}
+.legend{display:flex;flex-wrap:wrap;gap:8px 24px;margin:clamp(24px,3vw,36px) 0 0;padding:0;list-style:none;color:#C3D0C8;font-size:.92rem}
+.legend li{display:flex;align-items:center;gap:8px}
+.legend i{display:inline-block;width:14px;height:14px;flex:none;box-sizing:border-box}
+.legend .lead{background:var(--note);border-radius:50%}
+.legend .wrk{background:var(--paper);border-radius:50%}
+.legend .ts{border:2px solid var(--paper);border-radius:50%}
+.legend .sb{border:1.5px dashed var(--paper);border-radius:50%}
+.legend .pl{border:2px solid var(--note);border-radius:50%}
+.legend .wt{border:1.5px solid rgba(237,241,238,.7);border-radius:2px;background:rgba(0,0,0,.2)}
+.climb{margin-top:14px;color:#DDE6E0;font-size:1.02rem;max-width:80ch}
+.flow{list-style:none;margin:clamp(48px,6vw,80px) 0 0;padding:0;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:clamp(14px,2vw,28px);border-top:1.5px solid rgba(237,241,238,.5);counter-reset:f}
+.flow li{counter-increment:f;padding-top:16px}
+.flow li::before{content:counter(f);display:block;font-stretch:62%;font-weight:850;font-size:2.8rem;line-height:1;color:var(--note);margin-bottom:8px}
+.flow b{display:block;font-size:1.12rem;margin-bottom:4px;color:var(--paper)}
+.flow span{display:block;color:#C3D0C8;font-size:.96rem;line-height:1.45}
+.ask{margin-top:clamp(36px,5vw,56px);padding:20px 24px 22px;background:var(--note);color:var(--ink);max-width:640px;font-weight:500;line-height:1.5;transform:rotate(-.7deg);box-shadow:0 18px 28px -14px rgba(0,0,0,.55)}
+.ask b{display:block;font-stretch:62%;font-weight:850;font-size:1.7rem;line-height:1.05;margin-bottom:8px}
+.ask code{background:rgba(16,32,26,.12)}
+
+/* dashboard mock */
+.dash{background:var(--sheet);border:1.5px solid var(--ink);border-radius:3px;box-shadow:10px 10px 0 var(--mat);overflow:hidden}
+.dash-top{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:14px 18px;border-bottom:1.5px solid var(--ink);background:#E3EAE6}
+.dash-top .path{font-family:var(--mono);font-size:.8rem;color:var(--ink-2);margin-left:auto}
+.health{display:inline-flex;align-items:center;gap:8px;font-weight:700}
+.health i{width:14px;height:14px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 4px rgba(31,122,77,.2)}
+.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-bottom:1px solid var(--rule)}
+.metrics div{padding:16px 18px;border-right:1px solid var(--rule)}
+.metrics div:last-child{border-right:0}
+.metrics b{display:block;font-stretch:62%;font-weight:850;font-size:2.4rem;line-height:1}
+.metrics span{font-size:.88rem;color:var(--ink-2)}
+.dash-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.dash-col{padding:16px 18px}
+.dash-col + .dash-col{border-left:1px solid var(--rule)}
+.dash-col h4{margin:0 0 10px;font-size:1rem;font-weight:800}
+.todo{display:grid;gap:10px;margin:0;padding:0;list-style:none}
+.todo li{font-size:.93rem;line-height:1.4;padding-left:14px;border-left:4px solid var(--ink)}
+.todo li.ask-l{border-color:var(--note)}
+.todo li.rv{border-color:var(--mat)}
+.todo code{display:inline-block;margin-top:4px;background:#DCE4DF;padding:0 6px;border-radius:2px;font-size:.78rem}
+.wk{padding:10px 12px;border:1px solid var(--rule);margin-bottom:10px;font-size:.92rem;line-height:1.4}
+.wk b{display:block}
+.wk span{color:var(--ink-2);font-size:.86rem}
+.wk.warn{border-color:var(--amber);background:#FBF1DC}
+.wk.warn span{color:#7A4A06;font-weight:600}
+.bullets{margin:0;padding:0;list-style:none;display:grid;gap:18px}
+.bullets li{padding-left:20px;position:relative;line-height:1.5}
+.bullets li::before{content:"";position:absolute;left:0;top:.62em;width:9px;height:9px;background:var(--mat)}
+.bullets b{display:block;font-weight:800}
+.bullets span{color:var(--ink-2)}
+.cap{margin-top:14px;font-size:.88rem;color:var(--ink-2)}
+
+/* tools: harnesses share one desk */
+.hubs{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
+.hubs li{position:relative;display:flex;flex-direction:column;align-items:center;gap:14px;padding:30px 10px 22px;background:var(--mat-deep);border:1.5px solid rgba(237,241,238,.5);border-radius:3px;color:var(--paper);text-align:center}
+.hubs li::after{content:"";position:absolute;left:50%;top:100%;width:2px;height:34px;margin-left:-1px;background:repeating-linear-gradient(to bottom,rgba(237,241,238,.85) 0 5px,transparent 5px 9px)}
+.hubs svg{width:44px;height:44px;fill:currentColor}
+.hubs .mono-logo{display:grid;place-items:center;width:44px;height:44px;border:2.5px solid currentColor;border-radius:10px;font-family:var(--mono);font-weight:600;font-size:.95rem;letter-spacing:-.02em}
+.hubs b{font-size:1.08rem;line-height:1.2}
+.deskbar{position:relative;margin-top:34px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 28px;padding:20px 26px;background:var(--sheet);color:var(--ink);border-radius:3px;transform:rotate(-.35deg);
+  box-shadow:0 1px 0 rgba(0,0,0,.25),0 22px 34px -16px rgba(0,0,0,.6)}
+.deskbar b{font-stretch:62%;font-weight:850;font-size:clamp(2.2rem,4vw,3.4rem);line-height:1}
+.deskbar span{color:var(--ink-2);font-size:1.05rem}
+.pro{list-style:none;margin:clamp(48px,6vw,80px) 0 0;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:clamp(12px,2vw,24px)}
+.pro li{position:relative;display:flex;flex-direction:column;gap:8px;min-height:230px;padding:24px 24px 22px;border-radius:3px;box-shadow:0 20px 30px -18px rgba(0,0,0,.6)}
+.pro svg{position:absolute;right:20px;top:20px;width:52px;height:52px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;opacity:.85}
+.pro b{font-stretch:62%;font-weight:850;font-size:clamp(2.6rem,4.4vw,3.8rem);line-height:1}
+.pro p{font-size:1.02rem;line-height:1.4;max-width:24ch}
+.pro code{margin-top:auto;align-self:flex-start;padding:3px 10px;border-radius:2px;font-size:.88rem}
+.pro .ios{background:var(--sheet);color:var(--ink)}
+.pro .ios svg{color:var(--mat)}
+.pro .ios code{background:#DCE4DF}
+.pro .des{background:var(--note);color:var(--ink)}
+.pro .des code{background:rgba(16,32,26,.14)}
+.pro .uni{background:var(--ink);color:var(--paper)}
+.pro .uni svg{color:var(--note)}
+.pro .uni code{background:rgba(237,241,238,.16)}
+.pro .uni em{display:block;margin-top:6px;font-style:normal;font-weight:700;color:var(--note)}
+
+/* safety */
+.safe{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0;border-top:1.5px solid var(--ink)}
+.safe > div{display:flex;gap:18px;align-items:flex-start;padding:24px clamp(0px,2vw,28px) 24px 0;border-bottom:1px solid var(--rule)}
+.safe .ic{flex:none;width:44px;height:44px;padding:9px;background:var(--mat);stroke:var(--paper);stroke-width:1.8;fill:none;stroke-linecap:round;stroke-linejoin:round;border-radius:2px}
+.safe > div:nth-child(even){padding-left:clamp(0px,2vw,28px);border-left:1px solid var(--rule)}
+.safe h3{margin-bottom:6px}
+.safe p{color:var(--ink-2);line-height:1.5}
+.safe code{white-space:nowrap}
+.limit{margin-top:28px;max-width:70ch;color:var(--ink-2);font-size:.98rem}
+.limit b{color:var(--ink)}
+
+/* start */
+.start{background-color:var(--mat);color:var(--paper);
+  background-image:linear-gradient(var(--mat-major) 1px,transparent 1px),linear-gradient(90deg,var(--mat-major) 1px,transparent 1px),linear-gradient(var(--mat-minor) 1px,transparent 1px),linear-gradient(90deg,var(--mat-minor) 1px,transparent 1px);
+  background-size:200px 200px,200px 200px,40px 40px,40px 40px;background-position:-1px -1px;border-top:0 !important}
+.start h2{color:var(--paper)}
+.go{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:clamp(40px,5vw,64px) clamp(24px,4vw,56px);margin-top:clamp(36px,5vw,64px)}
+.go-1{grid-column:1/-1}
+.go h3{display:flex;align-items:center;gap:16px;margin-bottom:20px;font-size:1.5rem;color:var(--paper)}
+.go h3 .n{font-stretch:62%;font-weight:850;font-size:clamp(3.4rem,6vw,5rem);line-height:.8;color:var(--note)}
+.term.go-term{max-width:900px}
+.tabs{display:flex;flex-wrap:wrap;border-bottom:1.5px solid rgba(237,241,238,.3)}
+.tabs button{min-height:48px;padding:0 clamp(14px,2.4vw,26px);border:0;border-bottom:3px solid transparent;background:none;color:#9DB9AD;font:700 1rem var(--display);cursor:pointer}
+.tabs button:hover{color:var(--paper)}
+.tabs button[aria-pressed="true"]{color:var(--paper);border-bottom-color:var(--note)}
+.go-cmd{font-family:var(--mono);font-size:clamp(.82rem,1.7vw,1.12rem);line-height:1.7;padding:clamp(20px,3vw,34px) clamp(16px,2.4vw,28px) clamp(16px,2.4vw,26px)}
+.go-cmd .me{font-weight:600}
+.term-foot{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px 20px;padding:14px clamp(16px,2.4vw,28px);border-top:1.5px solid rgba(237,241,238,.25)}
+.term-foot .hint{color:#9DB9AD;font-size:.98rem}
+.copybtn{min-height:46px;min-width:140px;padding:0 22px;border:0;border-radius:2px;background:var(--note);color:var(--ink);font:700 1rem var(--display);cursor:pointer}
+.copybtn:hover{background:#FFE46E}
+.cmd button.is-done,.copybtn.is-done{background:#BFEBD0}
+[data-copy] .i-ok,[data-copy] .l2{display:none}
+[data-copy].is-done .i-ok,[data-copy].is-done .l2{display:inline-block}
+[data-copy].is-done .i-copy,[data-copy].is-done .l1{display:none}
+.nav .lang{display:flex;border:1.5px solid rgba(237,241,238,.55);border-radius:2px;overflow:hidden}
+.nav .lang button{min-height:40px;min-width:44px;padding:0 10px;border:0;background:none;color:var(--paper);font:700 .88rem var(--display);cursor:pointer}
+.nav .lang button:hover{background:rgba(237,241,238,.16)}
+.nav .lang button[aria-pressed="true"]{background:var(--paper);color:var(--mat)}
+.slip2{background:var(--sheet);color:var(--ink);border-radius:2px;transform:rotate(var(--r,-.45deg));box-shadow:0 1px 0 rgba(0,0,0,.25),0 18px 28px -14px rgba(0,0,0,.55),0 5px 9px -5px rgba(0,0,0,.35)}
+.go .slip2{--r:-.5deg;max-width:480px}
+.go-3 .slip2{--r:.6deg}
+.go .slip-body{padding:10px 18px 14px;font-family:var(--mono);font-size:clamp(.8rem,1.15vw,.92rem);line-height:1.65}
+.go .slip-body .r{display:grid;grid-template-columns:7.2em minmax(0,1fr);gap:12px;padding:6px 0;border-bottom:1px dashed var(--rule)}
+.go .slip-body .r:last-child{border-bottom:0}
+.go .slip-body .r > span:first-child{color:var(--ink-2)}
+.go .slip-body code{background:#DCE4DF;padding:0 6px;border-radius:2px}
+.foot{align-items:center;padding-block:28px 40px;border-top:1.5px solid rgba(237,241,238,.5);margin-top:clamp(36px,5vw,64px);display:flex;flex-wrap:wrap;gap:12px 32px;color:#C3D0C8;font-size:.95rem}
+.foot a{color:var(--paper);font-weight:600;display:inline-block;padding:10px 0}
+
+/* ---------- responsive ---------- */
+@media (max-width:960px){
+  .hero-body{grid-template-columns:minmax(0,1fr)}
+  .desk{padding:0 0 56px}
+  .hubs{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .hubs li::after{display:none}
+  .deskbar{margin-top:16px}
+  .split,.why,.life{grid-template-columns:minmax(0,1fr)}
+  .rules{position:static}
+  .why-head{position:static}
+  .flow{grid-template-columns:minmax(0,1fr);border-top:0}
+  .flow li{display:grid;grid-template-columns:48px minmax(0,1fr);gap:0 12px;border-top:1.5px solid rgba(237,241,238,.5);padding-top:14px}
+  .tiers{grid-template-columns:minmax(0,1fr)}
+  .tiers li{display:grid;grid-template-columns:128px minmax(0,1fr);gap:0 18px;align-items:center}
+  .tiers svg{margin:0}
+  .flow li::before{grid-row:span 2;margin:0}
+  .dash-grid{grid-template-columns:minmax(0,1fr)}
+  .dash-col + .dash-col{border-left:0;border-top:1px solid var(--rule)}
+  .safe{grid-template-columns:minmax(0,1fr)}
+  .safe > div:nth-child(even){padding-left:0;border-left:0}
+}
+@media (max-width:680px){
+  .nav li.opt{display:none}
+  .out{grid-template-columns:1.6em minmax(0,1fr)}
+  .out .cmdx{grid-column:2;white-space:normal;overflow-wrap:anywhere}
+  .metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .metrics div:nth-child(2){border-right:0}
+  .metrics div:nth-child(-n+2){border-bottom:1px solid var(--rule)}
+  .hubs{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .pro{grid-template-columns:minmax(0,1fr)}
+  .pro li{min-height:0}
+  .cmd button{min-width:128px}
+  .sheet{padding-bottom:60px}
+  .note{width:40%;padding:12px}
+  .note b{font-size:1.4rem}
+  .note span{font-size:.82rem}
+  .stamp{padding:6px 10px 8px}
+  .stamp b{font-size:1.4rem}
+  .go{grid-template-columns:minmax(0,1fr)}
+}
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  .row,.note,.stamp{animation:none}
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Bỏ qua tới nội dung</a>
+
+<header class="hero" id="top">
+  <div class="wrap">
+    <nav class="nav" aria-label="Chính">
+      <a class="brand" href="#top"><svg class="logo" viewBox="0 0 64 64" aria-hidden="true"><rect x="2" y="2" width="60" height="60" rx="9" fill="#1B5244" stroke="#EDF1EE" stroke-opacity=".35" stroke-width="2"/><path d="M22 2v60M42 2v60M2 22h60M2 42h60" stroke="#EDF1EE" stroke-opacity=".14" stroke-width="1.2"/><g transform="rotate(-7 32 31)"><rect x="14" y="13" width="34" height="34" rx="2" fill="#F5D547"/><path d="M23 31l7 7 12-14" fill="none" stroke="#10201A" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></g></svg><span>agent-work-kit</span></a>
+      <ul>
+        <li class="opt"><a href="#vi-sao">Vì sao cần bàn</a></li>
+        <li class="opt"><a href="#doi">Làm theo đội</a></li>
+        <li class="opt"><a href="#start">Bắt đầu</a></li>
+        <li class="lang" role="group" aria-label="Ngôn ngữ"><button type="button" data-lang="vi" aria-pressed="true" lang="vi">VI</button><button type="button" data-lang="en" aria-pressed="false" lang="en">EN</button></li>
+        <li class="gh-li"><a class="gh" href="https://github.com/nguyennamkkb/agent-work-kit" rel="noopener">GitHub</a></li>
+      </ul>
+    </nav>
+  </div>
+  <div class="wrap hero-body">
+    <div>
+      <h1><span>Phiên nào</span><span>cũng bắt đầu</span><span>từ chỗ đã dừng.</span></h1>
+      <p class="sub">Agent nhớ việc, chia việc cho đội, và chỉ báo xong khi có bằng chứng.</p>
+      <div class="install">
+        <div class="cmd">
+          <code id="hero-cmd">npx github:nguyennamkkb/agent-work-kit init <span class="nb">--universal</span></code>
+          <button type="button" data-copy="#hero-cmd"><svg class="i-copy" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg><span class="l1">Chép lệnh</span><svg class="i-ok" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg><span class="l2">Đã chép</span></button>
+        </div>
+        <small>Node 18 trở lên, không cần thư viện nào khác.</small>
+      </div>
+    </div>
+
+    <div class="desk" role="img" aria-label="Minh hoạ mặt bàn agent thấy đầu mỗi phiên: mục tiêu, việc đang làm, việc đang chờ, việc kế tiếp, điều cần nhớ. Một tờ note ghi bạn nói gấp nên việc lên P0, một con dấu ghi xong có bằng chứng.">
+      <div class="sheet" aria-hidden="true">
+        <div class="sheet-bar"><span>desk status</span><span>khoảng 100 token</span></div>
+        <dl class="rows" style="margin:0">
+          <div class="row" style="--i:0"><dt>Mục tiêu</dt><dd>Đăng nhập bằng Apple chạy trên máy thật</dd></div>
+          <div class="row" style="--i:1"><dt>Đang làm</dt><dd><span class="tag p0">P0</span>Q-4 Sửa lỗi token hết hạn<span class="sub2">tiếp: viết test refresh, build scheme Lumen-Dev</span></dd></div>
+          <div class="row" style="--i:2"><dt>Đang chờ</dt><dd>Q-6 chờ anh A gửi API, tới 01/12</dd></div>
+          <div class="row" style="--i:3"><dt>Kế tiếp</dt><dd><span class="tag p1">P1</span>Q-7 Màn hình hồ sơ</dd></div>
+          <div class="row" style="--i:4"><dt>Cần nhớ</dt><dd>Luôn build bằng scheme Lumen-Dev</dd></div>
+          <div class="row" style="--i:5"><dt>Vừa xong</dt><dd>Q-3 Nút đăng nhập Apple</dd></div>
+        </dl>
+        <p class="sheet-foot">Ví dụ minh hoạ</p>
+      </div>
+      <div class="note" aria-hidden="true"><b>Gấp</b><span>Bạn vừa nói “gấp”. Q-4 tự lên P0.</span></div>
+      <div class="stamp" aria-hidden="true"><b>Xong, có bằng chứng</b><span>xcodebuild test: đạt</span></div>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+
+<section class="sec" id="vi-sao">
+  <div class="wrap why">
+    <div class="why-head">
+      <h2>Agent quên. Bàn thì nhớ.</h2>
+      <p class="lede">Bàn là một file, <code>.desk/desk.json</code>. Agent chỉ đổi nó bằng một lệnh, nên luôn có lịch sử và hoàn tác được.</p>
+    </div>
+    <div class="pairs">
+      <div class="pair">
+        <p class="think">Phiên mới. Mình đang làm gì nhỉ?</p>
+        <div class="slip">
+          <div class="slip-bar"><span>desk status</span><span>đầu phiên</span></div>
+          <div class="slip-body">
+            <div class="r"><span>Mục tiêu</span><span>Đăng nhập bằng Apple chạy trên máy thật</span></div>
+            <div class="r"><span>Đang làm</span><span>Q-4 Sửa lỗi token hết hạn</span></div>
+            <div class="r"><span>Cần nhớ</span><span>Luôn build bằng scheme Lumen-Dev</span></div>
+          </div>
+          <p class="slip-foot"><strong>Hiện lại mọi thứ</strong> đầu mỗi phiên, khoảng 100 token.</p>
+        </div>
+      </div>
+      <div class="pair">
+        <p class="think">Tiện tay đổi luôn màu nút này…</p>
+        <div class="slip">
+          <div class="slip-bar"><span>desk add</span><span>việc phát sinh</span></div>
+          <div class="slip-body">
+            <div class="line">Q-12 Đổi màu nút, <b>P2</b>, vào hàng chờ</div>
+            <div class="line">Q-4 vẫn là việc đang làm</div>
+          </div>
+          <p class="slip-foot"><strong>Mỗi lúc một việc.</strong> Việc mới xếp hàng.</p>
+        </div>
+      </div>
+      <div class="pair">
+        <p class="think">Xong rồi nhé!</p>
+        <div class="slip">
+          <div class="slip-bar"><span>desk done</span><span>kiểm bằng chứng</span></div>
+          <div class="slip-body">
+            <div class="line">done Q-4 <span class="no">thiếu bằng chứng</span></div>
+            <div class="line">done Q-4 --proof "xcodebuild test: đạt" <span class="ok">nhận</span></div>
+          </div>
+          <p class="slip-foot"><strong>Không bằng chứng, không xong.</strong></p>
+        </div>
+      </div>
+      <div class="pair">
+        <p class="think">Lại sửa file đó lần nữa…</p>
+        <div class="slip">
+          <div class="slip-bar"><span>desk lesson</span><span>lần thứ hai</span></div>
+          <div class="slip-body">
+            <div class="r"><span>Bài học</span><span>Đừng sửa file đó <b>×2</b></span></div>
+            <div class="r"><span>Đề xuất</span><span>P-001 thêm test thay vì ghi luật, chờ bạn duyệt</span></div>
+          </div>
+          <p class="slip-foot"><strong>Lỗi lặp lần hai</strong> thành đề xuất, chờ bạn duyệt.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sec dark" id="noi">
+  <div class="wrap">
+    <div class="sec-head">
+      <h2>Bạn cứ nói như bình thường.</h2>
+      <p class="lede">Hook đọc câu của bạn và tự ghi lên bàn.</p>
+    </div>
+    <div class="term" role="img" aria-label="Minh hoạ hội thoại trong terminal: mỗi câu bạn gõ, bàn ghi lại việc, ưu tiên, việc chờ, việc huỷ, bộ nhớ hoặc bài học; câu bình thường thì không ghi gì.">
+      <div class="term-bar"><i aria-hidden="true"><b></b><b></b><b></b></i><span>~/my-app</span></div>
+      <div class="term-body" aria-hidden="true">
+        <div class="turn"><div class="me"><span>làm màn hình hồ sơ</span></div>
+          <div class="out"><span class="msg"><b>Q-7</b> Màn hình hồ sơ <span class="tg doing">đang làm</span></span><code class="cmdx">add P1 --now</code></div></div>
+        <div class="turn"><div class="me"><span>gấp, lỗi token hết hạn quan trọng hơn</span></div>
+          <div class="out"><span class="msg"><b>Q-4</b> Sửa lỗi token <span class="tg p0">P0</span></span><code class="cmdx">prio Q-4 P0</code></div></div>
+        <div class="turn"><div class="me"><span>à cái đổi màu nút để sau nhé</span></div>
+          <div class="out"><span class="msg"><b>Q-12</b> Đổi màu nút, hàng chờ P2</span><code class="cmdx">add P2</code></div></div>
+        <div class="turn"><div class="me"><span>chờ anh A gửi API rồi làm tiếp</span></div>
+          <div class="out"><span class="msg"><b>Q-6</b> <span class="tg wait">chờ</span> anh A</span><code class="cmdx">wait Q-6 --on &quot;anh A&quot;</code></div></div>
+        <div class="turn"><div class="me"><span>bỏ nút đăng nhập Google đi</span></div>
+          <div class="out"><span class="msg"><b>Q-11</b> <span class="tg drop">huỷ</span> lấy lại được</span><code class="cmdx">drop Q-11 --why &quot;…&quot;</code></div></div>
+        <div class="turn"><div class="me"><span>nhớ: luôn build bằng scheme Lumen-Dev</span></div>
+          <div class="out"><span class="msg"><b>M-2</b> <span class="tg mem">bộ nhớ</span> phiên sau vẫn nhớ</span><code class="cmdx">remember &quot;…&quot;</code></div></div>
+        <div class="turn"><div class="me"><span>sai rồi, đừng sửa file đó</span></div>
+          <div class="out"><span class="msg"><b>L-3</b> bài học mới</span><code class="cmdx">lesson &quot;…&quot;</code></div></div>
+        <div class="turn"><div class="me"><span>chỉnh lại chữ trên nút cho gọn</span></div>
+          <div class="out quiet"><span class="msg">không ghi gì, 0 token</span></div></div>
+        <div class="turn"><div class="me"><span class="cursor"></span></div></div>
+      </div>
+    </div>
+    <p class="term-note">Minh hoạ. Mã việc là ví dụ.</p>
+  </div>
+</section>
+
+<section class="sec" id="vong-doi">
+  <div class="wrap">
+    <div class="sec-head">
+      <h2>Chưa có bằng chứng thì chưa xong.</h2>
+      <p class="lede">Đời của một việc, từ câu bạn nói tới lúc đóng.</p>
+    </div>
+    <div class="life">
+      <div>
+        <ol class="tl">
+        <li><time>09:12</time><span class="node" aria-hidden="true"></span>
+          <div><span class="st">inbox</span><p>Bạn nói “gấp, lỗi token”. Ghi nhanh.</p><code class="run">inbox &quot;lỗi token hết hạn&quot;</code></div></li>
+        <li><time>09:13</time><span class="node" aria-hidden="true"></span>
+          <div><span class="st">todo</span><p>Thành việc P0, kèm điều kiện xong.</p><code class="run">file Q-4 task P0</code></div></li>
+        <li class="s-doing"><time>09:15</time><span class="node" aria-hidden="true"></span>
+          <div><span class="st">doing</span><p>Bắt đầu. Việc cũ được gác lại.</p><code class="run">start Q-4 --next &quot;…&quot;</code></div></li>
+        <li class="s-wait"><time>10:40</time><span class="node" aria-hidden="true"></span>
+          <div><span class="st">waiting</span><p>Chờ API từ anh A.</p><code class="run">wait Q-4 --on &quot;anh A&quot;</code></div></li>
+        <li class="s-doing"><time>14:05</time><span class="node" aria-hidden="true"></span>
+          <div><span class="st">doing</span><p>API về. Làm tiếp đúng chỗ cũ.</p><code class="run">resume Q-4</code></div></li>
+        <li><time>15:30</time><span class="node" aria-hidden="true"></span>
+          <div><span class="st">review</span><p>Worker báo xong, sha 3f9a1c2. Chưa được đóng.</p><code class="run">worker Q-4 done --outcome succeeded</code></div></li>
+        <li class="s-done"><time>15:42</time><span class="node" aria-hidden="true"></span>
+          <div><span class="st">done</span><p>Đóng, kèm bằng chứng: 42 test đạt.</p><code class="run">done Q-4 --proof &quot;xcodebuild test: 42 đạt&quot;</code></div></li>
+        </ol>
+        <p class="tl-cap">Minh hoạ. Giờ và mã việc là ví dụ.</p>
+      </div>
+      <div class="rules">
+        <div><h3>Một việc đang làm</h3><p>Worker chạy song song, agent chính chỉ một việc.</p></div>
+        <div><h3>Không bằng chứng, không đóng</h3><p><code>done</code> cần lệnh kiểm đã chạy hoặc sha.</p></div>
+        <div><h3>Lối rẽ luôn có lý do</h3><p>Huỷ và thất bại đều ghi lý do. <code>restore</code> lấy lại việc đã huỷ.</p></div>
+        <div class="proof">
+          <div class="seal" aria-hidden="true">Đã kiểm</div>
+          <p>Mỗi nghề có định nghĩa “xong” riêng.</p>
+          <!-- TẠM ẨN iOS/Designer. Bản đầy đủ: “Xong” theo nghề. iOS: build và test xanh. Designer: audit sạch. -->
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sec dark" id="doi">
+  <div class="wrap">
+    <div class="sec-head">
+      <h2>Việc lớn thì chia cho đội.</h2>
+      <p class="lede">Chọn tầng rẻ nhất mà vẫn đủ. Chỉ leo khi có bằng chứng.</p>
+    </div>
+    <ul class="tiers" aria-label="Năm tầng giao việc">
+        <li><svg viewBox="0 0 132 96" aria-hidden="true"><rect class="bx" x="10" y="14" width="112" height="68" rx="3"/><circle class="lead" cx="66" cy="48" r="9"/></svg>
+          <div><span class="t">T0</span><b>Agent chính</b><span class="for">1 đến 3 file</span></div></li>
+        <li><svg viewBox="0 0 132 96" aria-hidden="true"><rect class="bx" x="10" y="14" width="76" height="68" rx="3"/><circle class="lead" cx="40" cy="48" r="9"/><path class="ln d" d="M52 48H102"/><circle class="sb" cx="112" cy="48" r="9"/></svg>
+          <div><span class="t">T1</span><b>Subagent của harness</b><span class="for">Đọc, khảo sát</span></div></li>
+        <li><svg viewBox="0 0 132 96" aria-hidden="true"><rect class="bx" x="10" y="14" width="112" height="68" rx="3"/><circle class="lead" cx="38" cy="48" r="9"/><path class="ln" d="M49 48H83"/><circle class="wrk" cx="94" cy="48" r="9"/></svg>
+          <div><span class="t">T2</span><b>Một worker Orca</b><span class="for">Một module, chạy lâu</span></div></li>
+        <li><svg viewBox="0 0 132 96" aria-hidden="true"><circle class="lead" cx="16" cy="48" r="9"/><path class="ln" d="M27 48H50"/><rect class="bx" x="50" y="10" width="76" height="76" rx="3"/><circle class="wrk" cx="88" cy="32" r="9"/><circle class="ts" cx="88" cy="64" r="8"/></svg>
+          <div><span class="t">T3</span><b>Engineer và tester</b><span class="for">Nhiều module, cần test</span></div></li>
+        <li><svg viewBox="0 0 132 96" aria-hidden="true"><circle class="lead" cx="12" cy="48" r="9"/><path class="ln" d="M21 46L50 24M21 50L50 72"/><rect class="bx" x="44" y="4" width="84" height="40" rx="3"/><circle class="pl" cx="62" cy="24" r="7"/><path class="ln" d="M69 24H96"/><circle class="wrk" cx="106" cy="24" r="7"/><rect class="bx" x="44" y="52" width="84" height="40" rx="3"/><circle class="pl" cx="62" cy="72" r="7"/><path class="ln" d="M69 72H96"/><circle class="wrk" cx="106" cy="72" r="7"/></svg>
+          <div><span class="t">T4</span><b>Mỗi plan một lead</b><span class="for">Từ 2 plan cùng lúc</span></div></li>
+    </ul>
+    <ul class="legend" aria-hidden="true">
+      <li><i class="lead"></i>agent chính</li>
+      <li><i class="pl"></i>lead của plan</li>
+      <li><i class="wrk"></i>worker</li>
+      <li><i class="ts"></i>tester</li>
+      <li><i class="sb"></i>subagent</li>
+      <li><i class="wt"></i>worktree riêng</li>
+    </ul>
+    <p class="climb">Leo tầng khi quá 3 file, 15 lần gọi công cụ, hoặc build đỏ hai lần.</p>
+
+    <ol class="flow" aria-label="Quy trình giao việc">
+      <li><b>Plan</b><span>Quyết định, thứ tự, tiêu chí xong.</span></li>
+      <li><b>Việc</b><span>Ghi rõ file sở hữu.</span></li>
+      <li><b>Giao</b><span>Chọn model, viết brief, mở worker.</span></li>
+      <li><b>Kiểm</b><span>Đọc diff, kiểm sha.</span></li>
+      <li><b>Đóng</b><span>Qua cổng test. Bạn đồng ý mới merge.</span></li>
+    </ol>
+    <p class="ask"><b>Mở worker lần đầu, agent hỏi bạn trước.</b>Cần <a href="https://github.com/stablyai/orca" rel="noopener">Orca</a> và <code>git</code>. Không có Orca vẫn chạy với một agent.</p>
+  </div>
+</section>
+
+<section class="sec" id="dashboard">
+  <div class="wrap split" style="align-items:center">
+    <div>
+      <h2>Mở một file là thấy cả đội.</h2>
+      <p class="lede">Một file <code>.desk/desk.html</code>. Không cần server, tự làm mới mỗi 10 giây.</p>
+      <ul class="bullets" style="margin-top:32px">
+        <li><b>Đèn sức khoẻ</b><span>Xanh, vàng, đỏ kèm lý do.</span></li>
+        <li><b>Cần bạn</b><span>Câu hỏi, báo cáo, đề xuất chờ duyệt.</span></li>
+        <li><b>Đội</b><span>Ai làm gì, bao lâu.</span></li>
+        <li><b>Hiệu quả từng model</b><span>Tỉ lệ thành công của từng model.</span></li>
+      </ul>
+    </div>
+    <figure style="margin:0">
+      <div class="dash" role="img" aria-label="Minh hoạ dashboard: đèn xanh, bốn chỉ số, hai việc cần bạn, hai worker trong đó một worker im lặng 18 phút">
+        <div class="dash-top"><span class="health"><i></i>Ổn</span><span class="mono">2 worker đang chạy</span><span class="path">.desk/desk.html</span></div>
+        <div class="metrics">
+          <div><b>3</b><span>đang làm</span></div>
+          <div><b>5</b><span>hàng chờ</span></div>
+          <div><b>1</b><span>chờ kiểm</span></div>
+          <div><b>12</b><span>xong trong 7 ngày</span></div>
+        </div>
+        <div class="dash-grid">
+          <div class="dash-col">
+            <h4>Cần bạn</h4>
+            <ul class="todo">
+              <li class="ask-l">Q-9 hỏi: lưu token bằng Keychain hay UserDefaults?<br><code>desk reply Q-9 "…"</code></li>
+              <li class="rv">Q-8 chờ kiểm, sha 3f9a1c2<br><code>desk done Q-8 --proof "…"</code></li>
+            </ul>
+          </div>
+          <div class="dash-col">
+            <h4>Đội</h4>
+            <div class="wk"><b>engineer, Q-9</b><span>chạy 22 phút, đang sửa AuthStore</span></div>
+            <div class="wk warn"><b>tester, Q-8</b><span>im lặng 18 phút</span></div>
+          </div>
+        </div>
+      </div>
+      <figcaption class="cap">Minh hoạ.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<section class="sec dark" id="hop">
+  <div class="wrap">
+    <div class="sec-head">
+      <h2>Hợp với công cụ bạn đang dùng.</h2>
+      <p class="lede">Mỗi harness một thư mục riêng, tất cả dùng chung một bàn.</p>
+    </div>
+    <ul class="hubs" aria-label="Sáu harness được hỗ trợ">
+      <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4.7144 15.9555 4.7174-2.6471.079-.2307-.079-.1275h-.2307l-.7893-.0486-2.6956-.0729-2.3375-.0971-2.2646-.1214-.5707-.1215-.5343-.7042.0546-.3522.4797-.3218.686.0608 1.5179.1032 2.2767.1578 1.6514.0972 2.4468.255h.3886l.0546-.1579-.1336-.0971-.1032-.0972L6.973 9.8356l-2.55-1.6879-1.3356-.9714-.7225-.4918-.3643-.4614-.1578-1.0078.6557-.7225.8803.0607.2246.0607.8925.686 1.9064 1.4754 2.4893 1.8336.3643.3035.1457-.1032.0182-.0728-.164-.2733-1.3539-2.4467-1.445-2.4893-.6435-1.032-.17-.6194c-.0607-.255-.1032-.4674-.1032-.7285L6.287.1335 6.6997 0l.9957.1336.419.3642.6192 1.4147 1.0018 2.2282 1.5543 3.0296.4553.8985.2429.8318.091.255h.1579v-.1457l.1275-1.706.2368-2.0947.2307-2.6957.0789-.7589.3764-.9107.7468-.4918.5828.2793.4797.686-.0668.4433-.2853 1.8517-.5586 2.9021-.3643 1.9429h.2125l.2429-.2429.9835-1.3053 1.6514-2.0643.7286-.8196.85-.9046.5464-.4311h1.0321l.759 1.1293-.34 1.1657-1.0625 1.3478-.8804 1.1414-1.2628 1.7-.7893 1.36.0729.1093.1882-.0183 2.8535-.607 1.5421-.2794 1.8396-.3157.8318.3886.091.3946-.3278.8075-1.967.4857-2.3072.4614-3.4364.8136-.0425.0304.0486.0607 1.5482.1457.6618.0364h1.621l3.0175.2247.7892.522.4736.6376-.079.4857-1.2142.6193-1.6393-.3886-3.825-.9107-1.3113-.3279h-.1822v.1093l1.0929 1.0686 2.0035 1.8092 2.5075 2.3314.1275.5768-.3218.4554-.34-.0486-2.2039-1.6575-.85-.7468-1.9246-1.621h-.1275v.17l.4432.6496 2.3436 3.5214.1214 1.0807-.17.3521-.6071.2125-.6679-.1214-1.3721-1.9246L14.38 17.959l-1.1414-1.9428-.1397.079-.674 7.2552-.3156.3703-.7286.2793-.6071-.4614-.3218-.7468.3218-1.4753.3886-1.9246.3157-1.53.2853-1.9004.17-.6314-.0121-.0425-.1397.0182-1.4328 1.9672-2.1796 2.9446-1.7243 1.8456-.4128.164-.7164-.3704.0667-.6618.4008-.5889 2.386-3.0357 1.4389-1.882.929-1.0868-.0062-.1579h-.0546l-6.3385 4.1164-1.1293.1457-.4857-.4554.0608-.7467.2307-.2429 1.9064-1.3114Z"/></svg><b>Claude Code</b></li>
+      <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22.2819 9.8211a5.9847 5.9847 0 0 0-.5157-4.9108 6.0462 6.0462 0 0 0-6.5098-2.9A6.0651 6.0651 0 0 0 4.9807 4.1818a5.9847 5.9847 0 0 0-3.9977 2.9 6.0462 6.0462 0 0 0 .7427 7.0966 5.98 5.98 0 0 0 .511 4.9107 6.051 6.051 0 0 0 6.5146 2.9001A5.9847 5.9847 0 0 0 13.2599 24a6.0557 6.0557 0 0 0 5.7718-4.2058 5.9894 5.9894 0 0 0 3.9977-2.9001 6.0557 6.0557 0 0 0-.7475-7.0729zm-9.022 12.6081a4.4755 4.4755 0 0 1-2.8764-1.0408l.1419-.0804 4.7783-2.7582a.7948.7948 0 0 0 .3927-.6813v-6.7369l2.02 1.1686a.071.071 0 0 1 .038.052v5.5826a4.504 4.504 0 0 1-4.4945 4.4944zm-9.6607-4.1254a4.4708 4.4708 0 0 1-.5346-3.0137l.142.0852 4.783 2.7582a.7712.7712 0 0 0 .7806 0l5.8428-3.3685v2.3324a.0804.0804 0 0 1-.0332.0615L9.74 19.9502a4.4992 4.4992 0 0 1-6.1408-1.6464zM2.3408 7.8956a4.485 4.485 0 0 1 2.3655-1.9728V11.6a.7664.7664 0 0 0 .3879.6765l5.8144 3.3543-2.0201 1.1685a.0757.0757 0 0 1-.071 0l-4.8303-2.7865A4.504 4.504 0 0 1 2.3408 7.872zm16.5963 3.8558L13.1038 8.364 15.1192 7.2a.0757.0757 0 0 1 .071 0l4.8303 2.7913a4.4944 4.4944 0 0 1-.6765 8.1042v-5.6772a.79.79 0 0 0-.407-.667zm2.0107-3.0231l-.142-.0852-4.7735-2.7818a.7759.7759 0 0 0-.7854 0L9.409 9.2297V6.8974a.0662.0662 0 0 1 .0284-.0615l4.8303-2.7866a4.4992 4.4992 0 0 1 6.6802 4.66zM8.3065 12.863l-2.02-1.1638a.0804.0804 0 0 1-.038-.0567V6.0742a4.4992 4.4992 0 0 1 7.3757-3.4537l-.142.0805L8.704 5.459a.7948.7948 0 0 0-.3927.6813zm1.0976-2.3654l2.602-1.4998 2.6069 1.4998v2.9994l-2.5974 1.4997-2.6067-1.4997Z"/></svg><b>Codex</b></li>
+      <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 24H2V0h20zM17 4.8H7v14.4h10z"/></svg><b>OpenCode</b></li>
+      <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M0 0v24h6v-6h6v-6H6V6h6v6h6V0Zm18 12v12h6V12Z"/></svg><b>Pi</b></li>
+      <li><span class="mono-logo" aria-hidden="true">omp</span><b>Oh My Pi</b></li>
+      <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11.503.131 1.891 5.678a.84.84 0 0 0-.42.726v11.188c0 .3.162.575.42.724l9.609 5.55a1 1 0 0 0 .998 0l9.61-5.55a.84.84 0 0 0 .42-.724V6.404a.84.84 0 0 0-.42-.726L12.497.131a1.01 1.01 0 0 0-.996 0M2.657 6.338h18.55c.263 0 .43.287.297.515L12.23 22.918c-.062.107-.229.064-.229-.06V12.335a.59.59 0 0 0-.295-.51l-9.11-5.257c-.109-.063-.064-.23.061-.23"/></svg><b>Cursor</b></li>
+    </ul>
+    <div class="deskbar"><b>.desk/</b><span>Một bàn chung. Kit tự nhận ra harness trong dự án.</span></div>
+    <ul class="pro" aria-label="Ba nghề">
+      <!-- TẠM ẨN iOS/Designer: xoá thuộc tính "hidden" ở các mục có chú thích này để bật lại -->
+      <li class="ios" hidden><svg viewBox="0 0 56 56" aria-hidden="true"><rect x="16" y="5" width="24" height="46" rx="6"/><path d="M24 44h8"/></svg><b>iOS</b><p>SwiftUI, Xcode. Build và test xanh mới xong.</p><code>--ios</code></li>
+      <li class="des" hidden><svg viewBox="0 0 56 56" aria-hidden="true"><path d="M10 46l4-13L38 9a5 5 0 0 1 7 7L21 40z"/><path d="M33 14l9 9"/></svg><b>Designer</b><p>Figma qua MCP, dùng token của thư viện.</p><code>--designer</code></li>
+      <li class="uni"><svg viewBox="0 0 56 56" aria-hidden="true"><rect x="8" y="8" width="16" height="16" rx="2"/><rect x="32" y="8" width="16" height="16" rx="2"/><rect x="8" y="32" width="16" height="16" rx="2"/><rect x="32" y="32" width="16" height="16" rx="8"/></svg><b>Universal</b><p>Mọi việc: nghiên cứu, viết, kế hoạch, code.<em hidden>Chưa chắc? Chọn cái này.</em></p><code>--universal</code></li>
+    </ul>
+  </div>
+</section>
+
+<section class="sec" id="an-toan">
+  <div class="wrap">
+    <div class="sec-head">
+      <h2>Không có gì mất hẳn.</h2>
+    </div>
+    <div class="safe">
+      <div><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7M12 17v.01"/></svg><div><h3>Hỏi trước</h3><p><code>git push</code>, merge, xoá worktree, mở worker.</p></div></div>
+      <div><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg><div><h3>Hoàn tác</h3><p><code>undo</code>. Việc đã huỷ lấy lại bằng <code>restore</code>.</p></div></div>
+      <div><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h6l2 2h10v10H3z"/></svg><div><h3>Ở lại trong dự án</h3><p>Không gửi gì ra ngoài, không cần tài khoản.</p></div></div>
+      <div><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M9 7V4h6v3M7 7l1 13h8l1-13"/></svg><div><h3>Gỡ sạch</h3><p><code>remove</code> trả file về như trước khi cài.</p></div></div>
+    </div>
+    <p class="limit"><b>Giới hạn.</b> Nhận diện bằng từ khoá nên có thể sót hoặc nhầm. Nhầm thì <code>undo</code>.</p>
+  </div>
+</section>
+
+<section class="sec start" id="start">
+  <div class="wrap">
+    <h2>Bắt đầu trong một phút.</h2>
+    <div class="go">
+      <div class="go-1">
+        <h3><span class="n">1</span>Cài</h3>
+        <div class="term go-term">
+          <div class="tabs" role="group" aria-label="Chọn nghề">
+            <button type="button" data-prof="universal" aria-pressed="true">Universal</button>
+            <!-- TẠM ẨN iOS/Designer: xoá thuộc tính "hidden" ở các mục có chú thích này để bật lại -->
+            <button type="button" data-prof="ios" aria-pressed="false" hidden>iOS</button>
+            <button type="button" data-prof="designer" aria-pressed="false" hidden>Designer</button>
+          </div>
+          <div class="go-cmd"><div class="me"><span id="go-cmd">npx github:nguyennamkkb/agent-work-kit init <span class="nb">--universal</span></span></div></div>
+          <div class="term-foot"><span class="hint" id="go-hint" aria-live="polite">Mọi việc: nghiên cứu, viết, kế hoạch, code.</span><button type="button" class="copybtn" data-copy="#go-cmd"><svg class="i-copy" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg><span class="l1">Chép lệnh</span><svg class="i-ok" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg><span class="l2">Đã chép</span></button></div>
+        </div>
+      </div>
+      <div class="go-2">
+        <h3><span class="n">2</span>Tin cậy một lần</h3>
+        <div class="slip2">
+          <div class="slip-bar"><span>bước bảo mật của harness</span></div>
+          <div class="slip-body">
+            <div class="r"><span>Codex</span><span><code>/hooks</code> rồi tin cậy</span></div>
+            <div class="r"><span>Pi</span><span>chọn tin cậy dự án</span></div>
+            <div class="r"><span>Còn lại</span><span>không cần gì</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="go-3">
+        <h3><span class="n">3</span>Làm việc như bình thường</h3>
+        <div class="slip2">
+          <div class="slip-bar"><span>xem bàn bất cứ lúc nào</span></div>
+          <div class="slip-body">
+            <div class="r"><span>Dashboard</span><span><code>.desk/desk.html</code></span></div>
+            <div class="r"><span>Đọc nhanh</span><span><code>.desk/DESK.md</code></span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="foot">
+      <span>MIT</span><span>Node 18 trở lên</span><span>Không thư viện phụ thuộc</span><span>Phiên bản 0.2.1</span>
+      <a href="https://github.com/nguyennamkkb/agent-work-kit" rel="noopener">github.com/nguyennamkkb/agent-work-kit</a>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<script>
+(function () {
+  var EN = {"Bỏ qua tới nội dung": "Skip to content", "Vì sao cần bàn": "Why a desk", "Làm theo đội": "Team mode", "Bắt đầu": "Get started", "Phiên nào": "Every session", "cũng bắt đầu": "starts where", "từ chỗ đã dừng.": "the last one stopped.", "Agent nhớ việc, chia việc cho đội, và chỉ báo xong khi có bằng chứng.": "The agent remembers its work, splits big jobs across a team, and reports done only with proof.", "Chép lệnh": "Copy command", "Đã chép": "Copied", "Node 18 trở lên, không cần thư viện nào khác.": "Node 18 or later. No other dependencies.", "khoảng 100 token": "about 100 tokens", "Mục tiêu": "Goal", "Đăng nhập bằng Apple chạy trên máy thật": "Sign in with Apple works on a real device", "Đang làm": "Doing", "Q-4 Sửa lỗi token hết hạn": "Q-4 Fix expired-token bug", "tiếp: viết test refresh, build scheme Lumen-Dev": "next: write refresh test, build scheme Lumen-Dev", "Đang chờ": "Waiting", "Q-6 chờ anh A gửi API, tới 01/12": "Q-6 waiting on Sam for the API, until Dec 1", "Kế tiếp": "Next", "Q-7 Màn hình hồ sơ": "Q-7 Profile screen", "Cần nhớ": "Remember", "Luôn build bằng scheme Lumen-Dev": "Always build with scheme Lumen-Dev", "Vừa xong": "Just done", "Q-3 Nút đăng nhập Apple": "Q-3 Sign in with Apple button", "Ví dụ minh hoạ": "Illustrative example", "Gấp": "Urgent", "Bạn vừa nói “gấp”. Q-4 tự lên P0.": "You just said “urgent”. Q-4 moves up to P0.", "Xong, có bằng chứng": "Done, with proof", "xcodebuild test: đạt": "xcodebuild test: passed", "Agent quên. Bàn thì nhớ.": "Agents forget. The desk remembers.", "Bàn là một file,": "The desk is one file,", ". Agent chỉ đổi nó bằng một lệnh, nên luôn có lịch sử và hoàn tác được.": ". The agent changes it with a single command, so there is always history and undo.", "Phiên mới. Mình đang làm gì nhỉ?": "New session. What was I working on?", "đầu phiên": "session start", "Hiện lại mọi thứ": "Shows everything again", "đầu mỗi phiên, khoảng 100 token.": "at the start of each session, about 100 tokens.", "Tiện tay đổi luôn màu nút này…": "While I’m here, let me change this button color…", "việc phát sinh": "new task", "Q-12 Đổi màu nút,": "Q-12 Change button color,", ", vào hàng chờ": ", goes to the queue", "Q-4 vẫn là việc đang làm": "Q-4 is still the task in progress", "Mỗi lúc một việc.": "One task at a time.", "Việc mới xếp hàng.": "New work queues up.", "Xong rồi nhé!": "All done!", "kiểm bằng chứng": "proof check", "thiếu bằng chứng": "proof missing", "done Q-4 --proof \"xcodebuild test: đạt\"": "done Q-4 --proof \"xcodebuild test: passed\"", "nhận": "accepted", "Không bằng chứng, không xong.": "No proof, not done.", "Lại sửa file đó lần nữa…": "Editing that file again…", "lần thứ hai": "second time", "Bài học": "Lesson", "Đừng sửa file đó": "Don’t edit that file", "Đề xuất": "Proposal", "P-001 thêm test thay vì ghi luật, chờ bạn duyệt": "P-001 add a test instead of a rule, awaiting your approval", "Lỗi lặp lần hai": "A mistake repeated twice", "thành đề xuất, chờ bạn duyệt.": "becomes a proposal, awaiting your approval.", "Bạn cứ nói như bình thường.": "Just talk like you normally do.", "Hook đọc câu của bạn và tự ghi lên bàn.": "A hook reads what you say and writes it to the desk.", "làm màn hình hồ sơ": "build the profile screen", "Màn hình hồ sơ": "Profile screen", "đang làm": "doing", "gấp, lỗi token hết hạn quan trọng hơn": "urgent, the expired-token bug matters more", "Sửa lỗi token": "Fix token bug", "à cái đổi màu nút để sau nhé": "oh, the button color change can wait", "Đổi màu nút, hàng chờ P2": "Change button color, P2 queue", "chờ anh A gửi API rồi làm tiếp": "waiting for Sam to send the API, then continue", "chờ": "waiting", "anh A": "Sam", "wait Q-6 --on \"anh A\"": "wait Q-6 --on \"Sam\"", "wait Q-4 --on \"anh A\"": "wait Q-4 --on \"Sam\"", "bỏ nút đăng nhập Google đi": "drop the Google sign-in button", "huỷ": "dropped", "lấy lại được": "recoverable", "nhớ: luôn build bằng scheme Lumen-Dev": "remember: always build with scheme Lumen-Dev", "bộ nhớ": "memory", "phiên sau vẫn nhớ": "remembered next session", "sai rồi, đừng sửa file đó": "wrong, don’t edit that file", "bài học mới": "new lesson", "chỉnh lại chữ trên nút cho gọn": "tidy up the label on the button", "không ghi gì, 0 token": "nothing recorded, 0 tokens", "Minh hoạ. Mã việc là ví dụ.": "Illustration. Task IDs are examples.", "Chưa có bằng chứng thì chưa xong.": "Not done until there is proof.", "Đời của một việc, từ câu bạn nói tới lúc đóng.": "The life of a task, from what you say to the moment it closes.", "Bạn nói “gấp, lỗi token”. Ghi nhanh.": "You say “urgent, token bug”. Captured fast.", "inbox \"lỗi token hết hạn\"": "inbox \"expired-token bug\"", "Thành việc P0, kèm điều kiện xong.": "Becomes a P0 task with a done condition.", "Bắt đầu. Việc cũ được gác lại.": "Starts. The older task is parked.", "Chờ API từ anh A.": "Waiting for the API from Sam.", "API về. Làm tiếp đúng chỗ cũ.": "API arrived. Resumes exactly where it stopped.", "Worker báo xong, sha 3f9a1c2. Chưa được đóng.": "Worker reports done, sha 3f9a1c2. Not closed yet.", "Đóng, kèm bằng chứng: 42 test đạt.": "Closed with proof: 42 tests passed.", "done Q-4 --proof \"xcodebuild test: 42 đạt\"": "done Q-4 --proof \"xcodebuild test: 42 passed\"", "Minh hoạ. Giờ và mã việc là ví dụ.": "Illustration. Times and task IDs are examples.", "Một việc đang làm": "One task in progress", "Worker chạy song song, agent chính chỉ một việc.": "Workers run in parallel; the main agent takes one task.", "Không bằng chứng, không đóng": "No proof, no close", "cần lệnh kiểm đã chạy hoặc sha.": "needs a check command that ran, or a sha.", "Lối rẽ luôn có lý do": "Every detour has a reason", "Huỷ và thất bại đều ghi lý do.": "Dropped and failed tasks both record a reason.", "lấy lại việc đã huỷ.": "brings back a dropped task.", "Đã kiểm": "Checked", "Mỗi nghề có định nghĩa “xong” riêng.": "Each profession defines “done” its own way.", "Việc lớn thì chia cho đội.": "Big jobs go to a team.", "Chọn tầng rẻ nhất mà vẫn đủ. Chỉ leo khi có bằng chứng.": "Pick the cheapest tier that is enough. Climb only with evidence.", "Agent chính": "Main agent", "1 đến 3 file": "1 to 3 files", "Subagent của harness": "Harness subagent", "Đọc, khảo sát": "Read, survey", "Một worker Orca": "One Orca worker", "Một module, chạy lâu": "One module, long run", "Engineer và tester": "Engineer and tester", "Nhiều module, cần test": "Many modules, needs tests", "Mỗi plan một lead": "One lead per plan", "Từ 2 plan cùng lúc": "2 or more plans at once", "agent chính": "main agent", "lead của plan": "plan lead", "worktree riêng": "own worktree", "Leo tầng khi quá 3 file, 15 lần gọi công cụ, hoặc build đỏ hai lần.": "Climb a tier past 3 files, 15 tool calls, or a red build twice.", "Quyết định, thứ tự, tiêu chí xong.": "Decisions, order, done criteria.", "Việc": "Task", "Ghi rõ file sở hữu.": "Names the files it owns.", "Giao": "Dispatch", "Chọn model, viết brief, mở worker.": "Picks the model, writes the brief, opens the worker.", "Kiểm": "Verify", "Đọc diff, kiểm sha.": "Reads the diff, checks the sha.", "Đóng": "Close", "Qua cổng test. Bạn đồng ý mới merge.": "Passes the test gate. Merges only with your OK.", "Mở worker lần đầu, agent hỏi bạn trước.": "Before the first worker opens, the agent asks you.", "Cần": "Needs", "và": "and", ". Không có Orca vẫn chạy với một agent.": ". Without Orca it still runs with a single agent.", "Mở một file là thấy cả đội.": "Open one file, see the whole team.", "Một file": "One file", ". Không cần server, tự làm mới mỗi 10 giây.": ". No server, refreshes every 10 seconds.", "Đèn sức khoẻ": "Health light", "Xanh, vàng, đỏ kèm lý do.": "Green, yellow, red, with the reason.", "Cần bạn": "Needs you", "Câu hỏi, báo cáo, đề xuất chờ duyệt.": "Questions, reports, proposals awaiting approval.", "Đội": "Team", "Ai làm gì, bao lâu.": "Who does what, and for how long.", "Hiệu quả từng model": "Per-model performance", "Tỉ lệ thành công của từng model.": "Success rate of each model.", "Ổn": "OK", "2 worker đang chạy": "2 workers running", "hàng chờ": "queued", "chờ kiểm": "in review", "xong trong 7 ngày": "done in 7 days", "Q-9 hỏi: lưu token bằng Keychain hay UserDefaults?": "Q-9 asks: store the token in Keychain or UserDefaults?", "Q-8 chờ kiểm, sha 3f9a1c2": "Q-8 in review, sha 3f9a1c2", "chạy 22 phút, đang sửa AuthStore": "running 22 min, editing AuthStore", "im lặng 18 phút": "silent for 18 min", "Minh hoạ.": "Illustration.", "Hợp với công cụ bạn đang dùng.": "Works with the tools you already use.", "Mỗi harness một thư mục riêng, tất cả dùng chung một bàn.": "Each harness gets its own folder; all share one desk.", "Một bàn chung. Kit tự nhận ra harness trong dự án.": "One shared desk. The kit detects the harness in your project.", "SwiftUI, Xcode. Build và test xanh mới xong.": "SwiftUI, Xcode. Done only on a green build and tests.", "Figma qua MCP, dùng token của thư viện.": "Figma over MCP, using the library’s tokens.", "Mọi việc: nghiên cứu, viết, kế hoạch, code.": "Any work: research, writing, planning, code.", "Chưa chắc? Chọn cái này.": "Not sure? Pick this one.", "Không có gì mất hẳn.": "Nothing is lost for good.", "Hỏi trước": "Asks first", ", merge, xoá worktree, mở worker.": ", merge, delete a worktree, open a worker.", "Hoàn tác": "Undo", ". Việc đã huỷ lấy lại bằng": ". A dropped task comes back with", "Ở lại trong dự án": "Stays in your project", "Không gửi gì ra ngoài, không cần tài khoản.": "Sends nothing out. No account needed.", "Gỡ sạch": "Clean removal", "trả file về như trước khi cài.": "restores your files as they were before install.", "Giới hạn.": "Limits.", "Nhận diện bằng từ khoá nên có thể sót hoặc nhầm. Nhầm thì": "Detection is keyword-based, so it can miss or misfire. If it does,", "Bắt đầu trong một phút.": "Start in one minute.", "Cài": "Install", "Tin cậy một lần": "Trust once", "bước bảo mật của harness": "the harness’s own security step", "rồi tin cậy": "then trust", "chọn tin cậy dự án": "choose to trust the project", "Còn lại": "Others", "không cần gì": "nothing needed", "Làm việc như bình thường": "Work as usual", "xem bàn bất cứ lúc nào": "look at the desk any time", "Đọc nhanh": "Quick read", "Node 18 trở lên": "Node 18 or later", "Không thư viện phụ thuộc": "Zero dependencies", "Phiên bản 0.2.1": "Version 0.2.1"};
+  var ATTR = {"Chính": "Main", "Minh hoạ mặt bàn agent thấy đầu mỗi phiên: mục tiêu, việc đang làm, việc đang chờ, việc kế tiếp, điều cần nhớ. Một tờ note ghi bạn nói gấp nên việc lên P0, một con dấu ghi xong có bằng chứng.": "Illustration of the desk the agent sees at the start of each session: goal, task in progress, waiting, next, things to remember. A note says you said urgent so the task moved to P0, and a stamp says done with proof.", "Minh hoạ hội thoại trong terminal: mỗi câu bạn gõ, bàn ghi lại việc, ưu tiên, việc chờ, việc huỷ, bộ nhớ hoặc bài học; câu bình thường thì không ghi gì.": "Illustration of a terminal conversation: for each sentence you type, the desk records a task, priority, wait, drop, memory or lesson; ordinary sentences record nothing.", "Năm tầng giao việc": "Five delegation tiers", "Quy trình giao việc": "Delegation workflow", "Minh hoạ dashboard: đèn xanh, bốn chỉ số, hai việc cần bạn, hai worker trong đó một worker im lặng 18 phút": "Illustration of the dashboard: green light, four metrics, two items needing you, two workers, one of them silent for 18 minutes", "Sáu harness được hỗ trợ": "Six supported harnesses", "Ba nghề": "Three professions", "Chọn nghề": "Choose a profession", "Ngôn ngữ": "Language"};
+  var HEAD = {"title": ["agent-work-kit: cái bàn làm việc cho coding agent", "agent-work-kit: a desk for your coding agent"], "description": ["Một lệnh đặt cái bàn làm việc (.desk/) vào dự án. Agent nhớ mục tiêu, việc đang làm và bài học qua mọi phiên, chỉ báo xong khi có bằng chứng, và có thể điều cả đội worker song song.", "One command puts a desk (.desk/) into your project. The agent remembers goals, current work and lessons across sessions, reports done only with proof, and can lead a team of parallel workers."], "og:title": ["agent-work-kit: phiên nào cũng bắt đầu từ chỗ đã dừng", "agent-work-kit: every session starts where the last one stopped"], "og:description": ["Cái bàn làm việc cho coding agent: nhớ việc, chia việc, kiểm bằng chứng. Một lệnh cài, không thư viện phụ thuộc.", "A desk for coding agents: remember the work, split the work, check the proof. One install command, zero dependencies."]};
+  var HINTS = {"vi": {"universal": "Mọi việc: nghiên cứu, viết, kế hoạch, code.", "ios": "SwiftUI và Xcode.", "designer": "Figma qua MCP."}, "en": {"universal": "Any work: research, writing, planning, code.", "ios": "SwiftUI and Xcode.", "designer": "Figma over MCP."}};
+  var lang = 'vi', prof = 'universal';
+  var orig = new WeakMap();
+  var KEY = 'awk-lang';
+
+  function walk(to) {
+    var w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+      acceptNode: function (n) { return n.parentNode.closest('script,style') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT; }
+    });
+    var n;
+    while ((n = w.nextNode())) {
+      if (!orig.has(n)) {
+        if (!n.nodeValue.trim()) continue;
+        orig.set(n, n.nodeValue);
+      }
+      var raw = orig.get(n);
+      if (to === 'en') {
+        var en = EN[raw.replace(/\s+/g, ' ').trim()];
+        if (en !== undefined) {
+          var m = raw.match(/^(\s*)[\s\S]*?(\s*)$/);
+          n.nodeValue = m[1] + en + m[2];
+        }
+      } else { n.nodeValue = raw; }
+    }
+    document.querySelectorAll('[aria-label]').forEach(function (el) {
+      if (!el.hasAttribute('data-vi-label')) el.setAttribute('data-vi-label', el.getAttribute('aria-label'));
+      var vi = el.getAttribute('data-vi-label');
+      el.setAttribute('aria-label', to === 'en' && ATTR[vi] ? ATTR[vi] : vi);
+    });
+  }
+
+  function head(to) {
+    var i = to === 'en' ? 1 : 0;
+    document.title = HEAD.title[i];
+    var set = function (sel, v) { var m = document.querySelector(sel); if (m) m.setAttribute('content', v); };
+    set('meta[name="description"]', HEAD.description[i]);
+    set('meta[property="og:title"]', HEAD['og:title'][i]);
+    set('meta[property="og:description"]', HEAD['og:description'][i]);
+  }
+
+  function setHint() { document.getElementById('go-hint').textContent = HINTS[lang][prof]; }
+
+  function setLang(to, save) {
+    lang = to;
+    walk(to);
+    head(to);
+    setHint();
+    document.documentElement.lang = to;
+    document.querySelectorAll('[data-lang]').forEach(function (b) { b.setAttribute('aria-pressed', b.getAttribute('data-lang') === to ? 'true' : 'false'); });
+    if (save) { try { localStorage.setItem(KEY, to); } catch (e) {} }
+  }
+
+  document.querySelectorAll('[data-lang]').forEach(function (b) {
+    b.addEventListener('click', function () { setLang(b.getAttribute('data-lang'), true); });
+  });
+
+  document.querySelectorAll('[data-copy]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var el = document.querySelector(btn.getAttribute('data-copy'));
+      var text = el ? el.textContent.trim() : '';
+      var done = function () {
+        btn.classList.add('is-done');
+        clearTimeout(btn._t);
+        btn._t = setTimeout(function () { btn.classList.remove('is-done'); }, 1800);
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(done, function () { fallback(text); done(); });
+      } else { fallback(text); done(); }
+    });
+  });
+
+  var tabs = document.querySelectorAll('[data-prof]');
+  tabs.forEach(function (t) {
+    t.addEventListener('click', function () {
+      prof = t.getAttribute('data-prof');
+      tabs.forEach(function (o) { o.setAttribute('aria-pressed', o === t ? 'true' : 'false'); });
+      document.getElementById('go-cmd').innerHTML = 'npx github:nguyennamkkb/agent-work-kit init <span class="nb">--' + prof + '</span>';
+      setHint();
+    });
+  });
+
+  function fallback(text) {
+    var ta = document.createElement('textarea');
+    ta.value = text; ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); } catch (e) {}
+    document.body.removeChild(ta);
+  }
+
+  var start = null;
+  try { start = new URLSearchParams(location.search).get('lang'); } catch (e) {}
+  if (start !== 'vi' && start !== 'en') { try { start = localStorage.getItem(KEY); } catch (e) {} }
+  if (start !== 'vi' && start !== 'en') { start = /^vi\b/i.test(navigator.language || '') ? 'vi' : 'en'; }
+  if (start === 'en') setLang('en', false);
+})();
+</script>
+</body>
+</html>
