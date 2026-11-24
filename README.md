@@ -83,13 +83,10 @@ npx github:nguyennamkkb/agent-work-kit init --universal
 | Small first version | shows an outline or draft early so you can steer |
 | After-action review | closes each task with one lesson for next time |
 
-Profession packs for specific fields are also available:
-
-| Flag | Pack | Status |
-|---|---|---|
-| `--universal` | any work | recommended |
+<!-- Hidden for now (not fully tested). To restore, add back under the install step:
 | `--ios` | iOS developer (SwiftUI, Xcode; done means a green build and tests) | preview |
 | `--designer` | product designer (Figma over MCP, library tokens) | preview |
+-->
 
 The kit detects which harness your project uses. If it finds none, it installs for Claude Code.
 
@@ -214,7 +211,7 @@ The agent picks the **cheapest tier that is enough** and climbs only on evidence
 
 **Guard rails that keep the team on course:**
 
-- **Leases.** An exclusive resource (for example an iOS simulator) can be held by one tester at a time.
+- **Leases.** An exclusive resource (for example a test device) can be held by one tester at a time.
 - **Four-way triage** for every red report: environment (rerun), a bug in the plan (send to a fixer), a design gap (stop and decide), or out of scope (note it).
 - **Two fix rounds.** After two failed rounds the agent escalates to a stronger model or does it itself.
 - **Disciplined pausing:** `PAUSE`, `RESUME`, `REBASE`, `ABORT`. A worker commits its partial work before stopping.
@@ -264,7 +261,7 @@ Rules come in three layers, resolved by ID:
 2. **Profession pack** (`kit/profession/<name>/rules.md`): each rule has an ID, a priority, a reason and a way to check it.
 
    ```markdown
-   ### IOS-001 · P0
+   ### BE-001 · P0
    Before reporting done, run the project's build + test command and show the summary.
    - Why: "done" without a green build is the most common false report.
    - Check: test output appears in the session before "done".
@@ -326,7 +323,7 @@ CLAUDE.md                         @AGENTS.md (when using Claude Code)
 .claude/settings.json             hooks + "ask" permissions, merged, never overwritten
 .agents/skills/desk/SKILL.md      the same skill, for Codex, Pi, Oh My Pi, OpenCode
 .codex/hooks.json · .pi/extensions/ · .omp/extensions/ · .opencode/plugins/ · .cursor/rules/   (per harness)
-.mcp.json                         Figma MCP (only with --designer)
+.mcp.json                         MCP servers a profession needs (only when its pack declares them)
 .desk/
   desk.json      desk data (commit)            DESK.md       readable copy (commit)
   team.json      team profile: build, test, routing (commit)
@@ -398,7 +395,7 @@ src/commands/         init, switch, update, desk, review, doctor, remove, list
 src/lib/              engine (file writes, manifest, rule diff by ID, v1 migration), markers, JSON merge, cache cleanup
 src/adapters/         one adapter per harness
 kit/method/           SKILL.md, docs/team.md, desk.mjs, hooks/ (_lib, store, team, cli, 5 hooks, dashboard), bridge/, desk/ (template)
-kit/profession/       profession packs: ios, designer, universal
+kit/profession/       profession packs
 test/                 kit, desk, storage, team, harness; fixtures/fake-orca.mjs
 ```
 
@@ -410,7 +407,6 @@ The technical specification is [DESK-SPEC.md](DESK-SPEC.md).
 - Each harness was checked by loading the exact files the kit generates, against API shapes verified on installed versions (Codex 0.171, OpenCode 2.3.2, Pi 1.6.0, omp 18.3.2). End-to-end runs with a real model are not yet complete.
 - Team mode is tested with a fake Orca in the test suite, and with read-only commands against real Orca 1.4.268. The workflow (per-plan worktrees, leases, triage, merge gate) is rewritten from orca-orchestrator, which ran for real on Orca 1.4.246. T4 phase A (a lead opening child workers itself) is blocked by Orca by default.
 - Cursor has no hooks, so it gets a checklist only.
-- The `--ios` and `--designer` packs are in preview.
 
 ## FAQ
 

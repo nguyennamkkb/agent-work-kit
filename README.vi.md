@@ -83,13 +83,10 @@ npx github:nguyennamkkb/agent-work-kit init --universal
 | Làm bản nhỏ trước | đưa dàn ý hoặc bản nháp sớm để bạn góp ý |
 | After-action review | xong việc thì rút ra một bài học cho lần sau |
 
-Ngoài ra còn có các gói nghề cho từng lĩnh vực:
-
-| Cờ | Gói | Trạng thái |
-|---|---|---|
-| `--universal` | mọi việc | khuyên dùng |
+<!-- Tạm ẩn (chưa test đủ). Để bật lại, thêm vào dưới bước cài:
 | `--ios` | iOS developer (SwiftUI, Xcode; "xong" nghĩa là build và test xanh) | bản xem trước |
 | `--designer` | product designer (Figma qua MCP, dùng token của thư viện) | bản xem trước |
+-->
 
 Kit tự nhận ra harness dự án đang dùng. Nếu không thấy harness nào, kit cài cho Claude Code.
 
@@ -214,7 +211,7 @@ Agent chọn **tầng rẻ nhất mà vẫn đủ**, và chỉ leo tầng khi c�
 
 **Các quy tắc giữ đội đúng hướng:**
 
-- **Lease.** Tài nguyên độc quyền (ví dụ simulator iOS) chỉ một tester được giữ tại một thời điểm.
+- **Lease.** Tài nguyên độc quyền (ví dụ một thiết bị test) chỉ một tester được giữ tại một thời điểm.
 - **Triage 4 loại** cho mỗi báo cáo đỏ: môi trường (chạy lại), lỗi trong plan (giao cho fixer), thiếu sót thiết kế (dừng lại, quyết định), hoặc không thuộc plan (ghi nhận).
 - **Hai vòng sửa.** Sau 2 vòng sửa thất bại, agent leo thang lên model mạnh hơn hoặc tự làm.
 - **Tạm dừng có kỷ luật:** `PAUSE`, `RESUME`, `REBASE`, `ABORT`. Worker commit phần dở rồi mới dừng.
@@ -264,7 +261,7 @@ Luật có ba lớp, cập nhật theo ID:
 2. **Gói nghề** (`kit/profession/<nghề>/rules.md`): mỗi luật có ID, mức ưu tiên, lý do và cách kiểm.
 
    ```markdown
-   ### IOS-001 · P0
+   ### BE-001 · P0
    Before reporting done, run the project's build + test command and show the summary.
    - Why: "done" without a green build is the most common false report.
    - Check: test output appears in the session before "done".
@@ -326,7 +323,7 @@ CLAUDE.md                         @AGENTS.md (nếu dùng Claude Code)
 .claude/settings.json             hook + quyền "ask", được merge, không ghi đè
 .agents/skills/desk/SKILL.md      cùng skill, cho Codex, Pi, Oh My Pi, OpenCode
 .codex/hooks.json · .pi/extensions/ · .omp/extensions/ · .opencode/plugins/ · .cursor/rules/   (theo harness)
-.mcp.json                         Figma MCP (chỉ khi --designer)
+.mcp.json                         MCP server mà gói nghề cần (chỉ khi gói đó khai báo)
 .desk/
   desk.json      dữ liệu bàn (commit)          DESK.md       bản để đọc (commit)
   team.json      hồ sơ đội: build, test, routing (commit)
@@ -398,7 +395,7 @@ src/commands/         init, switch, update, desk, review, doctor, remove, list
 src/lib/              engine (ghi file, manifest, so luật theo ID, chuyển bàn v1), marker, merge JSON, tự dọn cache
 src/adapters/         một adapter cho mỗi harness
 kit/method/           SKILL.md, docs/team.md, desk.mjs, hooks/ (_lib, store, team, cli, 5 hook, dashboard), bridge/, desk/ (mẫu)
-kit/profession/       gói nghề: ios, designer, universal
+kit/profession/       các gói nghề
 test/                 kit, desk, storage, team, harness; fixtures/fake-orca.mjs
 ```
 
@@ -410,7 +407,6 @@ test/                 kit, desk, storage, team, harness; fixtures/fake-orca.mjs
 - Mỗi harness đã được kiểm bằng cách nạp đúng file mà kit sinh ra, với API theo hình dạng đã xác minh trên bản cài (Codex 0.171, OpenCode 2.3.2, Pi 1.6.0, omp 18.3.2). Chưa chạy end-to-end đầy đủ với model thật.
 - Phần đội được kiểm bằng một Orca giả trong test, và bằng các lệnh chỉ đọc trên Orca 1.4.268 thật. Quy trình đội (worktree theo plan, lease, triage, cổng merge) được viết lại từ orca-orchestrator, vốn đã chạy thật trên Orca 1.4.246. Chế độ T4 phase A (lead tự mở worker con) bị Orca chặn mặc định.
 - Cursor không có hook, nên chỉ có checklist.
-- Các gói `--ios` và `--designer` đang ở bản xem trước.
 
 ## Hỏi đáp
 
