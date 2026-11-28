@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import os from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { read, readJson, writeAtomic, git, today, nowIso, DESK, mainRoot, readState, writeState } from './_lib.mjs';
 import { mutate, load, find, tasks, log, depsOpen, releaseLeases, isLead, TASK_OPEN, TASK_CLOSED, fmt, ready } from './store.mjs';
@@ -13,9 +14,9 @@ export const TEAM_DEFAULTS = {
   maxPlanWorktrees: 3,
   plansDir: '.desk/plans',
   notes: [],
-  routing: { deny: ['*free*'], roles: {} },
+  routing: { deny: [], roles: {} },
 };
-export const ROLES = ['engineer', 'designer', 'tester', 'fixer', 'writer', 'reviewer', 'researcher', 'lead'];
+export const ROLES = ['engineer', 'designer', 'tester', 'fixer', 'writer', 'reviewer', 'researcher', 'scout', 'lead'];
 const teamPath = (droot) => path.join(droot, DESK, 'team.json');
 
 export function loadTeam(droot) {
@@ -23,9 +24,35 @@ export function loadTeam(droot) {
   const out = JSON.parse(JSON.stringify(TEAM_DEFAULTS));
   for (const [k, v] of Object.entries(raw)) out[k] = v && typeof v === 'object' && !Array.isArray(v) && typeof out[k] === 'object' && !Array.isArray(out[k]) ? { ...out[k], ...v } : v;
   if (!out.mainBranch) out.mainBranch = detectMain(droot);
-  if (!Object.keys(out.routing.roles ?? {}).length) out.routing = { ...out.routing, roles: defaultRoles(), generated: true };
+  out.routing = mergeRouting(out.routing);
   return out;
 }
+// Saved roles win; every other role gets the default. A default candidate takes the effort a saved role
+// already gives the same agent:model, so the merged routing never breaks "one model keeps one effort".
+export function mergeRouting(routing, defs = defaultRoles()) {
+  const saved = routing.roles ?? {};
+  const effortOf = new Map();
+  for (const r of Object.values(saved))
+    for (const raw of [...(r.use ?? []), ...(r.fallback ?? []), ...(r.escalate ?? [])]) {
+      const c = parseCandidate(raw);
+      if (c.model) effortOf.set(`${c.agent}:${c.model}`, c.effort);
+    }
+  const fit = (raw) => {
+    const c = parseCandidate(raw);
+    const k = `${c.agent}:${c.model}`;
+    return c.model && effortOf.has(k) && effortOf.get(k) !== c.effort ? candText(c.agent, c.model, effortOf.get(k)) : raw;
+  };
+  const roles = { ...saved };
+  const defaults = [];
+  for (const [name, r] of Object.entries(defs)) {
+    if (name in saved) continue;
+    defaults.push(name);
+    roles[name] = { ...r, use: r.use.map(fit), fallback: [...new Set(r.fallback.map(fit))] };
+  }
+  const { generated, ...rest } = routing;
+  return { ...rest, roles, defaults };
+}
+const candText = (agent, model, effort) => `${agent}${model ? `:${model}` : ''}${effort ? `@${effort}` : ''}`;
 export function setTeam(droot, key, value) {
   const raw = readJson(teamPath(droot), {}) ?? {};
   const parts = key.split('.');
@@ -84,14 +111,17 @@ export const AGENTS = {
   antigravity: { effort: 'flag', catalog: null, newChild: true },
   grok: { effort: 'flag', catalog: null, newChild: true },
   muse: { effort: 'flag', catalog: null, newChild: true },
-  pi: { effort: 'flag', catalog: null, newChild: true },
-  omp: { effort: 'suffix', catalog: ['omp', ['models', '--json']], newChild: true },
-  opencode: { effort: null, catalog: ['opencode', ['models']], newChild: false },
+  pi: { effort: 'flag', catalog: ['pi', ['--list-models']], newChild: true, providers: true },
+  omp: { effort: 'suffix', catalog: ['omp', ['models', '--json']], newChild: true, providers: true },
+  opencode: { effort: 'hash', catalog: ['opencode', ['models']], newChild: false, providers: true },
   opencode2: { effort: null, catalog: null, newChild: false },
   zcode: { effort: null, catalog: null, newChild: true },
 };
 const CLAUDE_EFFORTS = ['low', 'medium', 'high'];
 const PI_EFFORTS = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'];
+const OPENCODE_EFFORTS = ['minimal', 'low', 'medium', 'high', 'xhigh', 'max'];
+// Claude models the default routing uses; each keeps one effort so roles never conflict.
+export const CLAUDE_DEFAULTS = { opus: 'claude:claude-opus-5-5@high', sonnet: 'claude:claude-sonnet-5-5@medium', haiku: 'claude:claude-haiku-5-5@low' };
 const LEAD = 'orchestrator';
 
 export function parseCandidate(c) {
@@ -104,12 +134,38 @@ export function parseCandidate(c) {
   return { agent: i < 0 ? head : head.slice(0, i), model: i < 0 ? null : head.slice(i + 1), effort, text: c };
 }
 
+// Default routing (from the author's tuned .desk/team.json). Candidates whose agent is not installed are dropped;
+// a default candidate missing from the agent's model list is skipped at route time, never an error.
+const DS_OMP = 'omp:op-go/deepseek-v4.1-flash@high';
+const DS_OPENCODE = 'opencode:opencode-go/deepseek-v4.1-flash@high';
+const HY4_FREE = 'opencode:opencode-go/hy4-flash-free@high';
+export const DEFAULT_ROUTES = (({ opus, sonnet, haiku }) => ({
+  engineer: [sonnet, DS_OMP, DS_OPENCODE, opus],
+  designer: [opus, sonnet, 'omp'],
+  fixer: [sonnet, opus, 'omp'],
+  tester: [HY4_FREE, haiku, sonnet, 'omp'],
+  writer: [DS_OPENCODE, haiku, sonnet, 'omp'],
+  reviewer: [opus, sonnet, 'omp'],
+  scout: [HY4_FREE, haiku, sonnet, 'omp'],
+  researcher: { runs: 'subagent', chain: [haiku, sonnet] },
+}))(CLAUDE_DEFAULTS);
 export function defaultRoles(available = ['claude', 'omp', 'pi', 'opencode', 'codex'].filter(which)) {
   if (!available.length) return {};
-  const [a, b = a] = available;
-  const r = (use, fallback = [b]) => ({ use, fallback });
-  return { engineer: r([a]), designer: r([a]), fixer: r([a]), tester: r([a]), writer: r([a]), reviewer: r([a]), researcher: { runs: 'subagent', use: [a], fallback: [a] } };
+  if (!available.includes('claude')) {
+    const [a, b = a] = available;
+    const r = (use, fallback = [b]) => ({ use, fallback });
+    return { engineer: r([a]), designer: r([a]), fixer: r([a]), tester: r([a]), writer: r([a]), reviewer: r([a]), scout: r([a]), researcher: { runs: 'subagent', use: [a], fallback: [a] } };
+  }
+  const out = {};
+  for (const [role, spec] of Object.entries(DEFAULT_ROUTES)) {
+    const chain = (Array.isArray(spec) ? spec : spec.chain).filter((t) => available.includes(parseCandidate(t).agent));
+    const [use, ...fallback] = chain;
+    out[role] = { ...(spec.runs ? { runs: spec.runs } : {}), use: [use], fallback: fallback.length ? fallback : [CLAUDE_DEFAULTS.sonnet === use ? CLAUDE_DEFAULTS.opus : CLAUDE_DEFAULTS.sonnet] };
+  }
+  return out;
 }
+// Only roles the project saved are validated strictly; defaults adapt to the machine.
+export const savedRouting = (routing) => ({ ...routing, roles: Object.fromEntries(Object.entries(routing.roles ?? {}).filter(([n]) => !(routing.defaults ?? []).includes(n))) });
 
 const cachePath = (droot) => path.join(droot, DESK, '.routing-cache.json');
 export function catalogs(droot, { refresh = false, agents = Object.keys(AGENTS) } = {}) {
@@ -128,18 +184,9 @@ export function catalogs(droot, { refresh = false, agents = Object.keys(AGENTS) 
       out[name] = { at: Date.now(), models: null, error: `${cat[0]} not installed` };
       continue;
     }
-    const r = spawnSync(cat[0], cat[1], { encoding: 'utf8', timeout: 60000 });
-    let models = null;
-    let error = null;
-    if (r.status) error = `${cat.flat().join(' ')}: exit ${r.status}`;
-    else if (name === 'omp') {
-      try {
-        models = Object.fromEntries((JSON.parse(r.stdout).models ?? []).map((m) => [`${m.provider}/${m.id}`, m.thinking ?? []]));
-      } catch {
-        error = 'omp models: not JSON';
-      }
-    } else models = Object.fromEntries(r.stdout.split('\n').map((l) => l.trim()).filter((l) => l.includes('/') && !l.includes(' ')).map((l) => [l, []]));
-    out[name] = cache[name] = { at: Date.now(), models, error };
+    const r = spawnSync(cat[0], cat[1], { encoding: 'utf8', timeout: 60000, input: '' });
+    const parsed = r.status ? { models: null, error: `${cat.flat().join(' ')}: exit ${r.status}` } : parseCatalog(name, r.stdout ?? '');
+    out[name] = cache[name] = { at: Date.now(), ...parsed };
     changed = true;
   }
   if (changed)
@@ -150,8 +197,26 @@ export function catalogs(droot, { refresh = false, agents = Object.keys(AGENTS) 
   return out;
 }
 
+// One agent's model list → { models: { "provider/id": [efforts] }, error }.
+export function parseCatalog(name, stdout) {
+  const text = stdout.replace(/\x1b\[[0-9;]*m/g, '');
+  if (name === 'omp') {
+    try {
+      return { models: Object.fromEntries((JSON.parse(text).models ?? []).map((m) => [`${m.provider}/${m.id}`, m.thinking ?? []])), error: null };
+    } catch {
+      return { models: null, error: 'omp models: not JSON' };
+    }
+  }
+  if (name === 'pi') {
+    if (/No models available/i.test(text)) return { models: null, error: 'pi: no provider logged in (pi /login)' };
+    const rows = text.split('\n').map((l) => l.trim().split(/\s+/)).filter((p) => p.length >= 5 && p[0] !== 'provider' && /^[\w.-]+$/.test(p[0]));
+    return { models: Object.fromEntries(rows.map((p) => [`${p[0]}/${p[1]}`, p[4] === 'yes' ? PI_EFFORTS : []])), error: null };
+  }
+  return { models: Object.fromEntries(text.split('\n').map((l) => l.trim()).filter((l) => l.includes('/') && !l.includes(' ')).map((l) => [l, []])), error: null };
+}
+
 const glob = (g) => new RegExp('^' + g.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*').replace(/\?/g, '.') + '$');
-export function routingErrors(routing, cats = {}) {
+export function routingErrors(routing, cats = {}, verified = verifiedOf(routing)) {
   const errs = [];
   const deny = (routing.deny ?? []).map(glob);
   const effortOf = new Map();
@@ -178,16 +243,18 @@ export function routingErrors(routing, cats = {}) {
         }
         if (c.model && deny.some((re) => re.test(c.model))) errs.push(`${at}: model matches deny ${JSON.stringify(routing.deny)}`);
         const k = `${c.agent}:${c.model ?? ''}`;
-        if (effortOf.has(k) && effortOf.get(k) !== c.effort) errs.push(`${at}: ${k} already used with @${effortOf.get(k)}; one model keeps one effort`);
+        if (effortOf.has(k) && effortOf.get(k) !== c.effort) errs.push(`${at}: ${k} already used ${effortOf.get(k) ? `with @${effortOf.get(k)}` : 'without an effort'}; one model keeps one effort`);
         effortOf.set(k, c.effort);
         if (c.effort && !c.model && rule.effort) errs.push(`${at}: an effort needs a model (Orca: --effort requires --model)`);
         if (c.effort && !rule.effort) errs.push(`${at}: ${c.agent} takes no effort`);
         if (c.agent === 'claude' && c.effort && !CLAUDE_EFFORTS.includes(c.effort)) errs.push(`${at}: claude effort is one of ${CLAUDE_EFFORTS.join('/')}`);
         if (c.agent === 'pi' && c.effort && !PI_EFFORTS.includes(c.effort)) errs.push(`${at}: pi effort is one of ${PI_EFFORTS.join('/')}`);
+        if (c.agent === 'opencode' && c.effort && !OPENCODE_EFFORTS.includes(c.effort)) errs.push(`${at}: opencode variant is one of ${OPENCODE_EFFORTS.join('/')}`);
         const cat = cats[c.agent];
-        if (c.model && cat?.models) {
+        if (c.model && cat?.models && !verified.has(c.text)) {
           if (!(c.model in cat.models)) errs.push(`${at}: ${c.model} is not in ${c.agent}'s model list`);
           else if (c.effort && rule.effort === 'suffix' && !cat.models[c.model].includes(c.effort)) errs.push(`${at}: ${c.model} takes thinking levels ${JSON.stringify(cat.models[c.model])}`);
+          else if (c.effort && c.agent === 'pi' && !cat.models[c.model].length) errs.push(`${at}: ${c.model} has no thinking levels`);
         }
       }
   }
@@ -200,8 +267,11 @@ export function route(droot, team, role, { fails = 0, prefer = null, exclude = [
   if (!r) return { kind: 'ERROR', detail: `no routing for role ${role} (roles: ${Object.keys(routing.roles ?? {}).join(', ') || 'none — no agent CLI found; install one or set routing in .desk/team.json'})` };
   if (r.runs === 'lead') return { kind: 'ERROR', detail: `${role} runs as the lead session; it is never dispatched` };
   if (level === 'L4') return { kind: 'ERROR', l4: true, detail: 'unsliced L4 work: write the plan, split it (`split`), then dispatch the slices as L3 tasks' };
-  const cats = catalogs(droot, { agents: [...new Set(Object.values(routing.roles).flatMap((x) => [...(x.use ?? []), ...(x.fallback ?? []), ...(x.escalate ?? [])]).map((c) => parseCandidate(c).agent))] });
-  const errs = routingErrors(routing, cats);
+  const strict = savedRouting(routing);
+  const isDefault = (routing.defaults ?? []).includes(role);
+  const cats = catalogs(droot, { agents: modelAgents([...Object.values(strict.roles), r].flatMap((x) => [...(x.use ?? []), ...(x.fallback ?? []), ...(x.escalate ?? [])])) });
+  const errs = routingErrors(strict, cats);
+  const pings = pingCache(droot);
   if (errs.length) return { kind: 'ERROR', detail: `routing in .desk/team.json is invalid: ${errs.join('; ')}` };
   let chain = [...(r.use ?? []), ...(r.fallback ?? [])];
   if (fails >= 2) chain = [...(r.escalate ?? []), ...chain];
@@ -215,8 +285,17 @@ export function route(droot, team, role, { fails = 0, prefer = null, exclude = [
       continue;
     }
     const cat = cats[c.agent];
-    if (c.model && cat && cat.models == null && cat.error) {
+    const verified = verifiedOf(routing).has(c.text) || pings[c.text]?.ok;
+    if (c.model && cat && cat.models == null && cat.error && !verified) {
       skipped.push(`${c.text}: ${cat.error}`);
+      continue;
+    }
+    if (isDefault && c.model && cat?.models && !(c.model in cat.models) && !verified) {
+      skipped.push(`${c.text}: not in ${c.agent}'s model list (default routing)`);
+      continue;
+    }
+    if (pings[c.text] && !pings[c.text].ok) {
+      skipped.push(`${c.text}: ping failed — ${pings[c.text].err}`);
       continue;
     }
     if (r.runs === 'subagent') return { kind: 'SUBAGENT', cand: c, skipped, escalated: fails >= 2 };
@@ -232,9 +311,154 @@ export function route(droot, team, role, { fails = 0, prefer = null, exclude = [
 export function launchArgs(c) {
   const rule = AGENTS[c.agent]?.effort;
   const out = ['--agent', c.agent];
-  if (c.model) out.push('--model', c.effort && rule === 'suffix' ? `${c.model}:${c.effort}` : c.model);
+  if (c.model) out.push('--model', c.effort && rule === 'suffix' ? `${c.model}:${c.effort}` : c.effort && rule === 'hash' ? `${c.model}#${c.effort}` : c.model);
   if (c.model && c.effort && rule === 'flag') out.push('--effort', c.effort);
   return out;
+}
+
+const modelAgents = (list) => [...new Set(list.map(parseCandidate).filter((c) => c.model).map((c) => c.agent))];
+const verifiedOf = (routing) => new Set(Object.values(routing.roles ?? {}).flatMap((r) => r.learned?.verified ?? []));
+
+// ---- ping-pong: prove a candidate answers before routing keeps it ----
+const PING_TTL = 7 * 24 * 3600e3;
+const PING_PROMPT = 'Reply with exactly: PONG';
+const pingCache = (droot) => {
+  const pings = (readJson(cachePath(droot), {}) ?? {}).pings ?? {};
+  return Object.fromEntries(Object.entries(pings).filter(([, p]) => Date.now() - p.at < PING_TTL));
+};
+export function pingCommand(c) {
+  const m = c.model;
+  const e = c.effort;
+  const P = PING_PROMPT;
+  if (c.agent === 'claude') return ['claude', ['-p', ...(m ? ['--model', m] : []), ...(e ? ['--effort', e] : []), P]];
+  if (c.agent === 'omp') return ['omp', ['-p', ...(m ? ['--model', e ? `${m}:${e}` : m] : []), '--max-cost', '0.05', P]];
+  if (c.agent === 'pi') return ['pi', ['-p', ...(m ? ['--model', m] : []), ...(e ? ['--thinking', e] : []), P]];
+  if (c.agent === 'opencode') return ['opencode', ['run', '--archived', ...(m ? ['--model', e ? `${m}#${e}` : m] : []), P]];
+  if (c.agent === 'codex') return ['codex', ['exec', ...(m ? ['-m', m] : []), ...(e ? ['-c', `model_reasoning_effort=${e}`] : []), P]];
+  return null;
+}
+// A candidate needs a ping when the model list cannot vouch for it: no list (claude, codex), not in the list,
+// a list that failed, or an effort the list cannot check (opencode variants, pi thinking).
+export function needsPing(c, cats = {}) {
+  if (c.lead || c.bad || !c.model) return false;
+  const models = cats[c.agent]?.models;
+  if (!models || !(c.model in models)) return true;
+  return !!c.effort && (c.agent === 'opencode' || c.agent === 'pi');
+}
+export function pingCandidate(droot, text, { reping = false } = {}) {
+  const c = parseCandidate(text);
+  const cached = pingCache(droot)[c.text];
+  if (cached && !reping) return { ...cached, cached: true };
+  const cmd = pingCommand(c);
+  let res;
+  if (!cmd) res = { ok: false, err: `no ping command for ${c.agent}` };
+  else {
+    const fake = process.env.AGENTKIT_PING;
+    const [bin, args] = fake ? [fake, [cmd[0], ...cmd[1]]] : cmd;
+    if (!fake && !which(bin)) res = { ok: false, err: `${bin} not installed` };
+    else {
+      const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'agentkit-ping-'));
+      const r = spawnSync(bin, args, { cwd, encoding: 'utf8', timeout: 120000, input: '', shell: process.platform === 'win32' });
+      fs.rmSync(cwd, { recursive: true, force: true });
+      const outText = `${r.stdout ?? ''}\n${r.stderr ?? ''}`.replace(/\x1b\[[0-9;]*m/g, '');
+      const lines = outText.split('\n').map((l) => l.trim()).filter(Boolean);
+      if (r.error?.code === 'ETIMEDOUT') res = { ok: false, err: 'no answer in 120s' };
+      else if (!r.status && /\bPONG\b/.test(r.stdout ?? '')) res = { ok: true, err: null };
+      else res = { ok: false, err: (outText.match(/"message":"([^"]+)"/)?.[1] ?? lines.find((l) => /error|unavailable|not found|invalid|unknown|denied|no route|not supported/i.test(l)) ?? lines.at(-1) ?? `exit ${r.status}`).slice(0, 300) };
+    }
+  }
+  const cache = readJson(cachePath(droot), {}) ?? {};
+  cache.pings = { ...(cache.pings ?? {}), [c.text]: { ...res, at: Date.now() } };
+  try {
+    writeAtomic(cachePath(droot), JSON.stringify(cache) + '\n');
+  } catch {
+  }
+  return res;
+}
+
+// ---- learning: what the user names for a role is saved to .desk/team.json ----
+const keyOf = (t) => {
+  const c = parseCandidate(t);
+  return c.model ? `${c.agent}:${c.model}` : t;
+};
+function providerError(text, cats) {
+  const c = parseCandidate(text);
+  if (c.bad) return c.bad;
+  if (c.lead || !c.model || !AGENTS[c.agent]?.providers) return null;
+  const models = Object.keys(cats[c.agent]?.models ?? {});
+  const id = c.model.includes('/') ? c.model.slice(c.model.indexOf('/') + 1) : c.model;
+  const like = models.filter((m) => m.slice(m.indexOf('/') + 1) === id);
+  if (!c.model.includes('/')) return `${c.agent} needs provider/model${like.length ? ` — did you mean ${like.map((m) => candText(c.agent, m, c.effort)).join(' or ')}?` : ''}`;
+  if (models.length && !models.includes(c.model) && like.length) return `${c.model} is not in ${c.agent}'s list — did you mean ${like.map((m) => candText(c.agent, m, c.effort)).join(' or ')}?`;
+  return null;
+}
+// use/fallback/escalate: arrays the user named (any may be omitted). Returns { saved, role, entry, notes, errors }.
+export function learnRoute(droot, role, { use, fallback, escalate, from = 'user', reping = false, onPing = () => {} } = {}) {
+  if (!ROLES.includes(role) || role === 'lead') throw new Error(`role must be one of ${ROLES.filter((r) => r !== 'lead').join(', ')}`);
+  if (!use?.length && !fallback?.length && !escalate?.length) throw new Error('name at least one of --use, --fallback, --escalate');
+  const team = loadTeam(droot);
+  const isDefault = team.routing.defaults.includes(role);
+  const cur = team.routing.roles[role] ?? { use: [], fallback: [] };
+  if (use?.length && !fallback && !escalate && !isDefault && cur.use?.[0] === use[0] && cur.use.length === use.length) return { saved: false, unchanged: true, role, notes: [], errors: [] };
+  const { learned: _l, ...next } = cur;
+  if (use?.length) {
+    const keys = new Set(use.map(keyOf));
+    next.use = use;
+    if (!fallback) next.fallback = [...new Set([...(cur.use ?? []), ...(cur.fallback ?? [])])].filter((t) => !keys.has(keyOf(t)));
+  }
+  if (fallback) next.fallback = fallback;
+  if (escalate) next.escalate = escalate;
+  if (!next.fallback?.length) {
+    const keys = new Set(next.use.map(keyOf));
+    const d = defaultRoles()[role] ?? {};
+    next.fallback = [...new Set([...(d.use ?? []), ...(d.fallback ?? [])])].filter((t) => !keys.has(keyOf(t)));
+  }
+  const named = [...new Set([...(use ?? []), ...(fallback ?? []), ...(escalate ?? [])])];
+  const cats = catalogs(droot, { agents: modelAgents([...named, ...next.use, ...next.fallback, ...(next.escalate ?? [])]) });
+  const errors = named.map((t) => [t, providerError(t, cats)]).filter(([, e]) => e).map(([t, e]) => `"${t}": ${e}`);
+  if (errors.length) return { saved: false, role, notes: [], errors };
+  const notes = [];
+  const verified = new Set((cur.learned?.verified ?? []).filter((t) => [...next.use, ...next.fallback, ...(next.escalate ?? [])].includes(t)));
+  for (const t of named) {
+    const c = parseCandidate(t);
+    if (!needsPing(c, cats) || verified.has(t)) continue;
+    onPing(t);
+    const p = pingCandidate(droot, t, { reping });
+    if (!p.ok) errors.push(`"${t}": ping failed — ${p.err}`);
+    else {
+      verified.add(t);
+      notes.push(`${t}: ping ok${p.cached ? ' (cached)' : ''}`);
+    }
+  }
+  if (errors.length) return { saved: false, role, notes, errors };
+  const raw = readJson(teamPath(droot), {}) ?? {};
+  const savedRoles = { ...(raw.routing?.roles ?? {}) };
+  // The user's latest word wins: a saved role using the same agent:model with another effort follows it.
+  const want = new Map(named.map(parseCandidate).filter((c) => c.model).map((c) => [`${c.agent}:${c.model}`, c.text]));
+  for (const [name, r] of Object.entries(savedRoles)) {
+    if (name === role) continue;
+    let moved = false;
+    const fix = (list) => list && [...new Set(list.map((t) => {
+      const w = want.get(keyOf(t));
+      if (!w || w === t) return t;
+      moved = true;
+      return w;
+    }))];
+    const nr = { ...r, use: fix(r.use), fallback: fix(r.fallback), ...(r.escalate ? { escalate: fix(r.escalate) } : {}) };
+    if (moved) {
+      savedRoles[name] = nr;
+      notes.push(`${name} now uses the same effort: ${[...nr.use, ...nr.fallback].filter((t) => [...want.values()].includes(t)).join(', ')}`);
+    }
+  }
+  const entry = { ...next, learned: { at: nowIso(), from, ...(verified.size ? { verified: [...verified] } : {}) } };
+  savedRoles[role] = entry;
+  const merged = mergeRouting({ ...TEAM_DEFAULTS.routing, ...(raw.routing ?? {}), roles: savedRoles });
+  const errs = routingErrors(savedRouting(merged), cats);
+  if (errs.length) return { saved: false, role, notes, errors: errs };
+  raw.routing = { ...(raw.routing ?? {}), roles: savedRoles };
+  delete raw.routing.generated;
+  writeAtomic(teamPath(droot), JSON.stringify(raw, null, 2) + '\n');
+  return { saved: true, role, entry, notes, errors: [] };
 }
 
 export const plansDir = (droot, team) => path.join(droot, team.plansDir ?? '.desk/plans');
@@ -429,6 +653,7 @@ const ROLE_BRIEF = {
   writer: 'Apply the decided documentation or string changes, nothing else. Keep keys, order, format and format specifiers exactly. Never edit code.',
   reviewer: 'Read-only review of the diff against the plan and the project rules. Report findings as file:line, rule, what is wrong, evidence. No edits; finish with `done --no-commit`.',
   researcher: 'Read and survey; report findings with file:line evidence. No edits; finish with `done --no-commit`.',
+  scout: 'Scout ahead of the plan: map the files, entry points, commands and risks the task will touch, read excerpts not whole trees, and report a short map with file:line evidence plus open questions. No edits; finish with `done --no-commit`.',
   lead: 'You lead this plan: split it into sub-tasks (title | role | level | owned files | deps) and propose them with one `ask`; review your peers\' commits; triage test failures; finish with `done` carrying "merge-ready <HEAD sha>". Never dispatch, merge, push or edit lead-owned files yourself.',
 };
 export function specFor(droot, team, t, wt) {
@@ -443,7 +668,7 @@ export function specFor(droot, team, t, wt) {
     team.build ? `Build with: ${team.build} (from the worktree root). Build after each step and fix errors before the next.` : null,
     (team.leadFiles ?? []).length ? `Never edit lead-owned files (${team.leadFiles.join(', ')}); if one needs a change, ask.` : null,
     ROLE_BRIEF[t.role ?? 'engineer'] ?? ROLE_BRIEF.engineer,
-    !['tester', 'reviewer', 'researcher'].includes(t.role ?? 'engineer') ? 'Commit when the build is green: "<plan or task>: <what>". Do not push.' : null,
+    !['tester', 'reviewer', 'researcher', 'scout'].includes(t.role ?? 'engineer') ? 'Commit when the build is green: "<plan or task>: <what>". Do not push.' : null,
     team.test.exclusive && t.role === 'tester' ? `Exclusive resource ${team.test.exclusive}: before the first test run, \`lease acquire --holder ${t.id}\` (commands below); refused → ask the lead. Release it right before done.` : null,
     t.role === 'tester' && team.test.command ? `Test with: ${team.test.command}` : null,
     'Before each new file and after every build, run the `inbox` command below. On PAUSE: commit "wip: …", `ask "Paused at <step>"`, end your turn. RESUME → continue; REBASE <ref> then RESUME → rebase, build, continue; ABORT → `done --outcome failed`.',
@@ -500,8 +725,19 @@ export function dispatch(droot, id, o = {}) {
   const out = { steps: [] };
   let picked = null;
   let res = null;
+  let prefer = o.prefer || null;
+  if (prefer && !o.dryRun && !o.terminal) {
+    const pc = parseCandidate(prefer);
+    if (needsPing(pc, catalogs(droot, { agents: modelAgents([prefer]) })) && !verifiedOf(team.routing).has(prefer)) {
+      const p = pingCandidate(droot, prefer);
+      if (!p.ok) {
+        out.steps.push(`[SKIP] ${prefer}: ping failed — ${p.err}`);
+        prefer = null;
+      } else out.steps.push(`[PING] ${prefer}: ok${p.cached ? ' (cached)' : ''}`);
+    }
+  }
   for (let attempt = 0; attempt < 3; attempt++) {
-    const r = route(droot, team, role, { fails: Number(o.fails ?? 0), prefer: o.prefer, exclude: excluded, terminal: o.terminal, worktree, level: t.level });
+    const r = route(droot, team, role, { fails: Number(o.fails ?? 0), prefer, exclude: excluded, terminal: o.terminal, worktree, level: t.level });
     out.steps.push(...r.skipped?.map((s) => `[SKIP] ${s}`) ?? []);
     if (!['WORKER', 'REUSE'].includes(r.kind)) throw new Error(`route ${role} → ${r.kind}: ${r.detail ?? ''}${r.kind === 'SUBAGENT' ? ' — run it with your harness subagent, then `start ' + t.id + '`' : ''}`);
     const args = ['orchestration', 'worker-start', ...r.args, '--worktree', worktree, '--task-title', `${t.id} ${t.text}`.slice(0, 120), '--spec-file', sent, ...(o.keepOpen ? ['--keep-open'] : []), ...(o.run ? ['--run', o.run] : [])];
@@ -525,6 +761,15 @@ export function dispatch(droot, id, o = {}) {
     delete x.question;
     log(x, 'doing', `dispatched ${w.dispatchId ?? ''} via ${picked.cand.text}${o.fails ? ` (fails=${o.fails})` : ''}${excluded.length ? ` after launch failures: ${excluded.join(', ')}` : ''}`);
   });
+  if (prefer && picked.cand.text === prefer && !o.terminal) {
+    try {
+      const l = learnRoute(droot, role, { use: [prefer], from: 'dispatch' });
+      if (l.saved) out.steps.push(`[desk] routing ${role} ← ${prefer} (saved to .desk/team.json)`);
+      else if (l.errors.length) out.steps.push(`[desk] routing ${role}: ${prefer} not saved — ${l.errors.join('; ')}`);
+    } catch (e) {
+      out.steps.push(`[desk] routing ${role}: ${prefer} not saved — ${e.message}`);
+    }
+  }
   return { ...out, route: picked.cand.text, dispatch: w.dispatchId, terminal: w.terminal ?? w.terminalHandle, sent };
 }
 

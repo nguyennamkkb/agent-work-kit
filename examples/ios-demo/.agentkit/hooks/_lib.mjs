@@ -1,9 +1,7 @@
-// agent-work-kit — shared basics for the desk hooks and the `desk` command. Zero dependencies. Kit-managed: do not edit.
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 
-// ---------------------------------------------------------------- basics
 export const read = (p) => {
   try {
     return fs.readFileSync(p, 'utf8');
@@ -20,7 +18,6 @@ export const readJson = (p, fallback = null) => {
     return fallback;
   }
 };
-/** Write via a temp file + rename, so a crash never leaves half a file. */
 export function writeAtomic(p, text) {
   fs.mkdirSync(path.dirname(p), { recursive: true });
   const tmp = path.join(path.dirname(p), `.${path.basename(p)}.${process.pid}.tmp`);
@@ -28,7 +25,6 @@ export function writeAtomic(p, text) {
   fs.renameSync(tmp, p);
 }
 const sleep = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
-/** Cross-process lock (a directory); stale after 15 s. Returns the callback's result. */
 export function withLock(dir, fn) {
   const lock = path.join(dir, '.lock');
   fs.mkdirSync(dir, { recursive: true });
@@ -40,7 +36,6 @@ export function withLock(dir, fn) {
       try {
         if (Date.now() - fs.statSync(lock).mtimeMs > 15000) fs.rmSync(lock, { recursive: true, force: true });
       } catch {
-        /* gone already */
       }
       if (i > 200) throw new Error(`desk is locked (${lock}); remove it if no desk command is running`);
       sleep(25);
@@ -76,11 +71,9 @@ export function git(root, args) {
   }
 }
 
-// ---------------------------------------------------------------- where things live
 export const DESK = '.desk';
 export const MANIFEST = '.agentkit.json';
 
-/** Project checkout root: the nearest directory (walking up) that holds .agentkit.json or .desk/. */
 export function findRoot(start) {
   let d = path.resolve(start || process.cwd());
   for (;;) {
@@ -92,20 +85,23 @@ export function findRoot(start) {
 }
 export const projectDir = (input = {}) => findRoot(process.env.AGENTKIT_ROOT || process.env.CLAUDE_PROJECT_DIR || input.cwd || process.cwd());
 
-/**
- * The desk is shared by every git worktree of the project: a worker in `plan-<slug>` reads and writes the main
- * checkout's .desk/, so there is one board for the whole team. Falls back to the checkout itself.
- */
+// macOS: /var → /private/var; git prints the real path, hooks get the symlinked one.
+export const realPath = (p) => {
+  try {
+    return fs.realpathSync(p);
+  } catch {
+    return path.resolve(p);
+  }
+};
 export function deskRoot(root) {
   if (process.env.AGENTKIT_DESK_ROOT) return path.resolve(process.env.AGENTKIT_DESK_ROOT);
   const common = git(root, ['rev-parse', '--path-format=absolute', '--git-common-dir']);
   if (common && path.basename(common) === '.git') {
     const main = path.dirname(common);
-    if (path.resolve(main) !== path.resolve(root) && fs.existsSync(path.join(main, DESK))) return main;
+    if (realPath(main) !== realPath(root) && fs.existsSync(path.join(main, DESK))) return main;
   }
   return root;
 }
-/** Main checkout of the repository (for worktrees and branches). */
 export function mainRoot(root) {
   const common = git(root, ['rev-parse', '--path-format=absolute', '--git-common-dir']);
   return common && path.basename(common) === '.git' ? path.dirname(common) : root;
@@ -114,15 +110,13 @@ export function mainRoot(root) {
 export function findManifest(root) {
   const p = path.join(root, MANIFEST);
   const data = readJson(p);
-  if (data && data.nghe && !data.profession) data.profession = data.nghe; // manifests before 0.2
+  if (data && data.nghe && !data.profession) data.profession = data.nghe;
   return data ? { path: p, base: root, data } : null;
 }
 
-/** Hook output that both Claude Code and Codex inject as context. */
 export function emitContext(event, text) {
   if (text) process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: event, additionalContext: text } }) + '\n');
 }
-/** Read context back from a hook's stdout (JSON form or plain text). */
 export function contextOf(stdout) {
   const t = (stdout ?? '').trim();
   if (!t) return '';
@@ -131,13 +125,11 @@ export function contextOf(stdout) {
       const j = JSON.parse(t);
       return j.hookSpecificOutput?.additionalContext ?? j.reason ?? '';
     } catch {
-      /* plain text */
     }
   }
   return t;
 }
 
-// ---------------------------------------------------------------- session state (git-ignored)
 const statePath = (droot) => path.join(droot, DESK, '.state.json');
 export function readState(droot) {
   return readJson(statePath(droot), null) ?? { session: 0, sessions: [] };
@@ -146,21 +138,19 @@ export function writeState(droot, s) {
   try {
     writeAtomic(statePath(droot), JSON.stringify(s, null, 2) + '\n');
   } catch {
-    /* no desk */
   }
 }
 export function bumpSession(droot) {
   const s = readState(droot);
   s.session = (s.session ?? 0) + 1;
   s.sessions = [...(s.sessions ?? []), today()].slice(-50);
-  delete s.teamAllowed; // the first worker of every session needs the user's yes again
+  delete s.teamAllowed;
   delete s.reminded;
   writeState(droot, s);
   return s;
 }
 
 export const JOURNAL_MAX = 256 * 1024;
-/** Append to the journal; past JOURNAL_MAX bytes keep the newest half (it is a working log, not an archive). */
 export function journal(droot, entry) {
   const f = path.join(droot, DESK, '.journal.jsonl');
   try {
@@ -170,7 +160,6 @@ export function journal(droot, entry) {
       writeAtomic(f, lines.slice(Math.floor(lines.length / 2)).join('\n') + '\n');
     }
   } catch {
-    /* no desk */
   }
 }
 export function sessionJournal(droot, session) {
@@ -187,10 +176,6 @@ export function sessionJournal(droot, session) {
     .filter((e) => e && e.s === session);
 }
 
-// ---------------------------------------------------------------- rules (pack + local)
-// ### IOS-012 · P1        (pack rule or new local rule)
-// ### IOS-012 · override  (local: replace kit rule)
-// ### IOS-020 · off       (local: disable kit rule)
 const RULE_HEAD = /^### ([A-Z]+-\d+)\s*[·|-]\s*(P[0-3]|override|off)\s*$/;
 export const LOCAL_RULES = 'rules.local.md';
 
@@ -226,7 +211,6 @@ export function parseRules(text) {
   return { preamble: preamble.join('\n').trim(), rules, bad };
 }
 
-/** Remove `### ID · …` section from rules text (used when the user drops an override). */
 export function removeRuleSection(text, id) {
   const out = [];
   let skip = false;
@@ -238,7 +222,6 @@ export function removeRuleSection(text, id) {
   return out.join('\n').replace(/\n{3,}/g, '\n\n');
 }
 
-// ---------------------------------------------------------------- review/ (proposals P-*, kit updates U-*)
 export function listReview(droot) {
   const out = [];
   for (const sub of ['review', 'archive']) {
@@ -274,7 +257,6 @@ export function setStatus(file, status, note = '') {
   fs.writeFileSync(file, text);
 }
 
-/** Lint rules.local.md. With `prev`, new or changed rules must cite an approved proposal. */
 export function lintLocalRules(droot, text, prev = null) {
   const errors = [];
   const { rules, bad } = parseRules(text);
@@ -297,8 +279,6 @@ export function lintLocalRules(droot, text, prev = null) {
   return errors;
 }
 
-// ---------------------------------------------------------------- file writes, across harnesses
-/** Find a Codex-style patch ("*** Begin Patch") anywhere in a tool input. */
 function findPatch(v) {
   if (typeof v === 'string') return v.includes('*** Begin Patch') ? v : null;
   if (Array.isArray(v)) {
@@ -314,7 +294,6 @@ function findPatch(v) {
   return null;
 }
 
-/** Parse the apply_patch envelope into per-file operations. */
 export function parseApplyPatch(text) {
   const ops = [];
   let cur = null;
@@ -355,14 +334,8 @@ function applyHunks(content, hunks) {
 
 const pick = (o, ...keys) => keys.map((k) => o?.[k]).find((v) => v != null);
 
-/**
- * Normalize any harness's file-writing tool call into [{ path, next, deleted? }].
- * `next` is the resulting content, or null when it cannot be predicted (path-only check).
- * Understands Claude (Edit/Write/MultiEdit), Codex apply_patch, Pi (edit {path, edits[oldText,newText]}),
- * OpenCode (edit {filePath, oldString, newString, replaceAll}), and generic {path|file_path|filePath}.
- */
 export function normalizeWrites(root, toolName, ti = {}, base = root) {
-  const abs = (p) => path.resolve(base || root, p); // relative paths are relative to the session cwd
+  const abs = (p) => path.resolve(base || root, p);
   const patch = findPatch(ti);
   if (patch) {
     return parseApplyPatch(patch).flatMap((op) => {
@@ -393,7 +366,6 @@ export function normalizeWrites(root, toolName, ti = {}, base = root) {
   return [{ path: p, next: null }];
 }
 
-// ---------------------------------------------------------------- reading the user
 const W = (list) => new RegExp(`(?<![\\p{L}])(?:${list})(?![\\p{L}])`, 'iu');
 export const SIGNALS = {
   correction: W("không phải|sai rồi|sai|nhầm|đừng|không được|làm lại|chưa đúng|vẫn lỗi|vẫn chưa|wrong|incorrect|don't|do not|stop|revert|undo|that's not|not what i|still broken|still failing"),
@@ -401,9 +373,14 @@ export const SIGNALS = {
   remember: W('nhớ|ghi nhớ|luôn luôn|luôn|không bao giờ|từ giờ|từ nay|remember|always|never|from now on|going forward'),
   later: W('để sau|làm sau|lúc khác|khi nào rảnh|tuần sau|later|someday|sometime|next week|not now'),
   wait: W('chờ|đợi|hold|on hold|wait for|waiting for|blocked by|pending'),
-  drop: W('bỏ đi|bỏ qua|thôi khỏi|không cần nữa|không làm nữa|huỷ|hủy|cancel|drop it|skip it|never mind|forget it'),
+  drop: W('bỏ đi|bỏ qua|bỏ việc|bỏ cái|bỏ luôn|thôi khỏi|không cần nữa|không làm nữa|huỷ|hủy|cancel|drop it|skip it|never mind|forget it'),
   team: W('song song|chia việc|giao việc|worker|đội|nhóm agent|parallel|delegate|team|orchestrate|worktree'),
   approve: /^\s*(ok|oke|okay|yes|yep|ừ|ừm|uh|đồng ý|duyệt|được|được rồi|chốt|làm đi|go ahead|approve[d]?|lgtm|sounds good)\b/iu,
+  // The user names an agent or model for a role ("engineer dùng sonnet medium") → the lead records it with `route learn`.
+  route: ((role, agent) => ({ test: (p) => role.test(p) && agent.test(p) }))(
+    W('engineer|designer|tester|fixer|writer|reviewer|researcher|scout|trinh sát|do thám|kỹ sư|lập trình viên|thiết kế|người test|kiểm thử|người review|người viết|nghiên cứu|vai trò|role'),
+    W('claude|sonnet|opus|haiku|omp|pi|opencode|codex|deepseek|glm|kimi|qwen|minimax|mimo|gpt|gemini|grok'),
+  ),
 };
 export function detectSignals(prompt) {
   return Object.entries(SIGNALS)
@@ -412,5 +389,5 @@ export function detectSignals(prompt) {
 }
 export const words = (s) => (String(s).toLowerCase().normalize('NFC').match(/[\p{L}\p{N}_]{3,}/gu) ?? []);
 export const STOP = new Set(
-  'the and for with this that from have not are you your but was what when then them they into about there please also just like need make sure cho của các những được trong với này một là có không và thì để khi đã sẽ đang lại nữa thôi rồi bạn mình tôi làm nhé nha giúp'.split(' '),
+  'the and for with this that from have not are you your but was what when then them they into about there please also just like need make sure use using should would could can will one two all any more some cho của các những được trong với này một là có không và thì để khi đã sẽ đang lại nữa thôi rồi bạn mình tôi làm nhé nha giúp nên hay hoặc cũng như việc cái đó kia sau trước ngày tuần tháng giờ học dùng xem cần muốn'.split(' '),
 );

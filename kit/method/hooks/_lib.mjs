@@ -85,12 +85,20 @@ export function findRoot(start) {
 }
 export const projectDir = (input = {}) => findRoot(process.env.AGENTKIT_ROOT || process.env.CLAUDE_PROJECT_DIR || input.cwd || process.cwd());
 
+// macOS: /var → /private/var; git prints the real path, hooks get the symlinked one.
+export const realPath = (p) => {
+  try {
+    return fs.realpathSync(p);
+  } catch {
+    return path.resolve(p);
+  }
+};
 export function deskRoot(root) {
   if (process.env.AGENTKIT_DESK_ROOT) return path.resolve(process.env.AGENTKIT_DESK_ROOT);
   const common = git(root, ['rev-parse', '--path-format=absolute', '--git-common-dir']);
   if (common && path.basename(common) === '.git') {
     const main = path.dirname(common);
-    if (path.resolve(main) !== path.resolve(root) && fs.existsSync(path.join(main, DESK))) return main;
+    if (realPath(main) !== realPath(root) && fs.existsSync(path.join(main, DESK))) return main;
   }
   return root;
 }
@@ -368,6 +376,11 @@ export const SIGNALS = {
   drop: W('bỏ đi|bỏ qua|bỏ việc|bỏ cái|bỏ luôn|thôi khỏi|không cần nữa|không làm nữa|huỷ|hủy|cancel|drop it|skip it|never mind|forget it'),
   team: W('song song|chia việc|giao việc|worker|đội|nhóm agent|parallel|delegate|team|orchestrate|worktree'),
   approve: /^\s*(ok|oke|okay|yes|yep|ừ|ừm|uh|đồng ý|duyệt|được|được rồi|chốt|làm đi|go ahead|approve[d]?|lgtm|sounds good)\b/iu,
+  // The user names an agent or model for a role ("engineer dùng sonnet medium") → the lead records it with `route learn`.
+  route: ((role, agent) => ({ test: (p) => role.test(p) && agent.test(p) }))(
+    W('engineer|designer|tester|fixer|writer|reviewer|researcher|scout|trinh sát|do thám|kỹ sư|lập trình viên|thiết kế|người test|kiểm thử|người review|người viết|nghiên cứu|vai trò|role'),
+    W('claude|sonnet|opus|haiku|omp|pi|opencode|codex|deepseek|glm|kimi|qwen|minimax|mimo|gpt|gemini|grok'),
+  ),
 };
 export function detectSignals(prompt) {
   return Object.entries(SIGNALS)

@@ -14,12 +14,13 @@ Memory  remember "fact/decision" [--pin] · forget ID --why "…" · touch ID
 Learn   lesson "…" · propose "title" --change "…" --why "…" [--from L-1] · approve P-1 --quote "…" · reject P-1
 Goal    goal "line" ["line"…] · inbox "…" · file ID task|memory|lesson [P0-3]
 Team    team [status|check|allow --quote "…"|set key value] · plan SLUG --goal "…" · route ROLE [--fails n]
+        route learn ROLE --use agent:provider/model@effort[,…] [--fallback …] [--escalate …] [--reping]  (record what the user named; pings unknown models)
         dispatch ID [--role r] [--spec f] [--worktree path:…] [--prefer agent:model@effort] [--fails n] [--terminal h] [--keep-open] [--dry-run]
         mail · reply ID "…" · send ID --subject PAUSE|RESUME|"REBASE <ref>"|ABORT --body "…" · sync [--apply] · fleet
         lease acquire|release|show [name] --holder ID · wt status|open SLUG [--base ref]|park|close|drop SLUG --yes|tidy · gate SLUG
 Worker  worker ID status "…" | ask "…" | escalate "…" | inbox | lease acquire|release | done --outcome succeeded|failed --summary "…" [--no-commit]`;
 
-const BOOL = new Set(['now', 'all', 'pin', 'yes', 'apply', 'dry-run', 'keep-open', 'force', 'no-commit', 'live', 'json']);
+const BOOL = new Set(['now', 'all', 'pin', 'yes', 'apply', 'dry-run', 'keep-open', 'force', 'no-commit', 'live', 'json', 'reping']);
 export function parse(argv) {
   const pos = [];
   const o = {};
@@ -196,8 +197,8 @@ export function run(argv, { cwd = process.cwd(), home = null, out = (s) => proce
       const team = T.loadTeam(droot);
       if (sub === 'check') {
         const cats = T.catalogs(droot, { refresh: !!o.live });
-        const errs = T.routingErrors(team.routing, cats);
-        return print([`orca: ${T.orcaAvailable() ? 'found' : 'not installed (team mode off; solo + subagents still work)'}`, `main: ${team.mainBranch} · build: ${team.build || '(not set)'} · test: ${team.test.command || '(not set)'}${team.test.exclusive ? ` · exclusive: ${team.test.exclusive}` : ''}`, ...Object.entries(team.routing.roles).map(([r, x]) => `  ${r.padEnd(10)} ${(x.use ?? []).join(' → ')} | fallback ${(x.fallback ?? []).join(', ')}${x.escalate ? ` | escalate ${x.escalate.join(', ')}` : ''}`), ...(Object.keys(team.routing.roles).length ? [] : ['  (no agent CLI found for routing; set routing.roles in .desk/team.json)']), errs.length ? `routing: ${errs.length} error(s): ${errs.join('; ')}` : 'routing: valid']);
+        const errs = T.routingErrors(T.savedRouting(team.routing), cats);
+        return print([`orca: ${T.orcaAvailable() ? 'found' : 'not installed (team mode off; solo + subagents still work)'}`, `main: ${team.mainBranch} · build: ${team.build || '(not set)'} · test: ${team.test.command || '(not set)'}${team.test.exclusive ? ` · exclusive: ${team.test.exclusive}` : ''}`, ...Object.entries(team.routing.roles).map(([r, x]) => `  ${r.padEnd(10)} ${(x.use ?? []).join(' → ')} | fallback ${(x.fallback ?? []).join(', ')}${x.escalate ? ` | escalate ${x.escalate.join(', ')}` : ''} ${team.routing.defaults.includes(r) ? '(default)' : `(saved${x.learned?.from ? ` by ${x.learned.from}` : ''})`}`), ...(Object.keys(team.routing.roles).length ? [] : ['  (no agent CLI found for routing; set routing.roles in .desk/team.json)']), ...Object.entries(cats).filter(([, c]) => c.error && !/not installed/.test(c.error)).map(([a, c]) => `  models ${a}: ${c.error}`), errs.length ? `routing: ${errs.length} error(s): ${errs.join('; ')}` : 'routing: valid']);
       }
       const s = T.teamSummary(droot);
       return print([`team: orca ${s.orca ? 'found' : 'not installed'} · workers ${s.running.length}/${team.maxWorkers} · ${s.allowed ? 'allowed this session' : 'not allowed yet this session (ask the user once, then team allow --quote)'}`, ...s.running.map((t) => `  ${line(t)} ${t.route ?? ''}`), ...s.review.map((t) => `  verify ${line(t)}${t.sha ? ' @' + t.sha : ''}`), ...s.questions.map((t) => `  answer ${t.id}: ${t.question.text}`), ...T.wtStatus(droot, team).map((w) => `  [${w.state}] plan/${w.slug} ahead ${w.ahead} · ${w.todo}`), ...Object.entries(s.leases ?? {}).map(([k, l]) => `  🔒 ${k} ${l.holder}`)]);
@@ -207,6 +208,15 @@ export function run(argv, { cwd = process.cwd(), home = null, out = (s) => proce
       return print(ok(`${path.relative(checkout, r.file)} ${r.created ? 'created — fill Decisions, Order and Done criteria, commit it' : 'exists'}`));
     }
     case 'route': {
+      if (pos[0] === 'learn') {
+        const list = (v) => (typeof v === 'string' ? v.split(',').map((x) => x.trim()).filter(Boolean) : undefined);
+        const pings = [];
+        const r = T.learnRoute(droot, pos[1], { use: list(o.use), fallback: list(o.fallback), escalate: list(o.escalate), reping: !!o.reping, onPing: (t) => pings.push(`pinging ${t}…`) });
+        if (r.unchanged) return print(ok(`routing ${r.role} already uses ${list(o.use).join(', ')}`));
+        const lines = [...pings, ...r.notes];
+        if (!r.saved) throw new Error([...lines, `routing ${r.role} not saved: ${r.errors.join('; ')}`].join('\n'));
+        return print([...lines, ok(`routing ${r.role} saved: ${r.entry.use.join(' → ')} | fallback ${r.entry.fallback.join(', ')}${r.entry.escalate ? ` | escalate ${r.entry.escalate.join(', ')}` : ''}`)]);
+      }
       const r = T.route(droot, T.loadTeam(droot), pos[0] ?? 'engineer', { fails: Number(o.fails ?? 0), prefer: o.prefer, level: o.level, terminal: o.terminal });
       return print([...(r.skipped ?? []).map((s) => `skip ${s}`), `${r.kind}${r.cand ? ` ${r.cand.text}` : ''}${r.args ? ` → ${r.args.join(' ')}` : ''}${r.detail ? ` — ${r.detail}` : ''}`]);
     }

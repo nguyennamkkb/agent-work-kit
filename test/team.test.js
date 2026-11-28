@@ -16,7 +16,7 @@ const G = ['-c', 'user.email=t@t', '-c', 'user.name=t'];
 const sh = (cwd, ...a) => execFileSync('git', [...G, ...a], { cwd, encoding: 'utf8' }).trim();
 
 function project() {
-  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'team-'));
+  const base = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'team-')));
   const root = path.join(base, 'app');
   fs.mkdirSync(root);
   const orcaDir = path.join(base, 'orca');
@@ -51,8 +51,9 @@ test('routing: candidates, effort rules per agent, validation, escalation', () =
   assert.deepEqual(T.launchArgs(T.parseCandidate('omp:op/ds@high')), ['--agent', 'omp', '--model', 'op/ds:high'], 'omp: thinking level in the model');
   assert.deepEqual(T.launchArgs(T.parseCandidate('pi:anthropic/claude@medium')), ['--agent', 'pi', '--model', 'anthropic/claude', '--effort', 'medium']);
   assert.deepEqual(T.launchArgs(T.parseCandidate('opencode:openrouter/x')), ['--agent', 'opencode', '--model', 'openrouter/x']);
-  const errs = T.routingErrors({ deny: ['*free*'], roles: { a: { use: ['nope:x'], fallback: ['opencode:m@high'] }, b: { use: ['claude@low'], fallback: ['claude:claude-x-free'] }, c: { use: ['orchestrator'] } } });
-  for (const re of [/unknown agent nope/, /opencode takes no effort/, /effort needs a model/, /matches deny/, /"orchestrator" only in fallback/, /fallback needs/]) assert.ok(errs.some((e) => re.test(e)), `${re} in ${errs.join(' | ')}`);
+  assert.deepEqual(T.launchArgs(T.parseCandidate('opencode:opencode-go/ds@high')), ['--agent', 'opencode', '--model', 'opencode-go/ds#high'], 'opencode: variant after #');
+  const errs = T.routingErrors({ deny: ['*free*'], roles: { a: { use: ['nope:x'], fallback: ['opencode:m@bogus'] }, b: { use: ['claude@low'], fallback: ['claude:claude-x-free'] }, c: { use: ['orchestrator'] } } });
+  for (const re of [/unknown agent nope/, /opencode variant is one of/, /effort needs a model/, /matches deny/, /"orchestrator" only in fallback/, /fallback needs/]) assert.ok(errs.some((e) => re.test(e)), `${re} in ${errs.join(' | ')}`);
   const { root } = project();
   const team = T.loadTeam(root);
   assert.equal(T.route(root, team, 'engineer').cand.text, 'claude:claude-sonnet-5-5@low');
@@ -282,4 +283,125 @@ test('gate: main ahead only by desk bookkeeping needs no rebase; real code on ma
   sh(root, 'add', '-A');
   sh(root, 'commit', '-q', '-m', 'code on main');
   assert.match(desk('gate', 'hero'), /behind main by code changes[\s\S]*gate: NOT ready/);
+});
+
+const PING = path.join(HERE, 'fixtures', 'fake-ping.mjs');
+function learning() {
+  const p = project();
+  const log = path.join(p.base, 'pings.jsonl');
+  process.env.AGENTKIT_PING = PING;
+  process.env.FAKE_PING_LOG = log;
+  delete process.env.FAKE_PING_FAIL;
+  const at = Date.now();
+  fs.writeFileSync(path.join(p.root, '.desk', '.routing-cache.json'), JSON.stringify({ omp: { at, models: { 'op-go/deepseek-v4.1-flash': ['low', 'high', 'max'], 'op-zen-free/deepseek-v4.1-flash-free': ['low'] }, error: null }, opencode: { at, models: { 'opencode-go/deepseek-v4.1-flash': [] }, error: null }, pi: { at, models: null, error: 'pi: no provider logged in (pi /login)' } }));
+  const pings = () => (fs.existsSync(log) ? fs.readFileSync(log, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l)) : []);
+  const saved = () => JSON.parse(fs.readFileSync(path.join(p.root, '.desk', 'team.json'), 'utf8')).routing.roles;
+  return { ...p, pings, saved };
+}
+
+test('default routing: Claude models with one effort each, merged per role, efforts follow saved roles', () => {
+  const d = T.defaultRoles(['claude', 'omp', 'opencode']);
+  assert.deepEqual(d.engineer, { use: ['claude:claude-sonnet-5-5@medium'], fallback: ['omp:op-go/deepseek-v4.1-flash@high', 'opencode:opencode-go/deepseek-v4.1-flash@high', 'claude:claude-opus-5-5@high'] });
+  assert.deepEqual(d.designer.use, ['claude:claude-opus-5-5@high']);
+  assert.deepEqual(d.tester.use, ['opencode:opencode-go/hy4-flash-free@high']);
+  assert.deepEqual(d.scout.use, ['opencode:opencode-go/hy4-flash-free@high']);
+  assert.deepEqual(d.writer.use, ['opencode:opencode-go/deepseek-v4.1-flash@high']);
+  assert.deepEqual(d.reviewer.use, ['claude:claude-opus-5-5@high']);
+  assert.equal(d.researcher.runs, 'subagent');
+  assert.ok(T.ROLES.includes('scout'));
+  const only = T.defaultRoles(['claude']);
+  assert.deepEqual(only.tester, { use: ['claude:claude-haiku-5-5@low'], fallback: ['claude:claude-sonnet-5-5@medium'] }, 'agents not installed drop out of the defaults');
+  assert.deepEqual(only.engineer, { use: ['claude:claude-sonnet-5-5@medium'], fallback: ['claude:claude-opus-5-5@high'] });
+  assert.deepEqual(T.TEAM_DEFAULTS.routing.deny, [], 'free models are allowed by default');
+  assert.deepEqual(T.routingErrors(T.mergeRouting({ deny: [], roles: {} }, d)), []);
+  assert.deepEqual(T.defaultRoles(['omp', 'pi']).engineer, { use: ['omp'], fallback: ['pi'] }, 'no claude: first agents found');
+  const m = T.mergeRouting({ roles: { engineer: { use: ['claude:claude-sonnet-5-5@high'], fallback: ['omp'] } } }, d);
+  assert.ok(!m.defaults.includes('engineer') && m.defaults.includes('tester'), 'saving one role keeps the defaults of the others');
+  assert.deepEqual(m.roles.fixer.use, ['claude:claude-sonnet-5-5@high'], 'a default takes the effort the saved role gives the same model');
+  assert.deepEqual(T.routingErrors(m), []);
+  assert.equal(m.generated, undefined);
+});
+
+test('model lists: pi table, pi without a provider; ping commands per agent; which candidates need a ping', () => {
+  const pi = T.parseCatalog('pi', 'provider   model              context  max-out  thinking  images\nanthropic  claude-sonnet-5-5  1M       64K      yes       yes\nopenai     gpt-4o-mini        128K     16K      no        yes\n');
+  assert.deepEqual(Object.keys(pi.models), ['anthropic/claude-sonnet-5-5', 'openai/gpt-4o-mini']);
+  assert.ok(pi.models['anthropic/claude-sonnet-5-5'].includes('high'));
+  assert.deepEqual(pi.models['openai/gpt-4o-mini'], []);
+  assert.match(T.parseCatalog('pi', 'No models available. Use /login …').error, /no provider logged in/);
+  const cmd = (t) => T.pingCommand(T.parseCandidate(t));
+  assert.deepEqual(cmd('claude:claude-sonnet-5-5@medium'), ['claude', ['-p', '--model', 'claude-sonnet-5-5', '--effort', 'medium', 'Reply with exactly: PONG']]);
+  assert.deepEqual(cmd('omp:op-go/ds@high')[1].slice(0, 3), ['-p', '--model', 'op-go/ds:high']);
+  assert.deepEqual(cmd('opencode:opencode-go/ds@high')[1].slice(0, 4), ['run', '--archived', '--model', 'opencode-go/ds#high']);
+  assert.deepEqual(cmd('pi:anthropic/x@low')[1].slice(0, 5), ['-p', '--model', 'anthropic/x', '--thinking', 'low']);
+  const cats = { omp: { models: { 'op-go/ds': ['high'] } }, opencode: { models: { 'opencode-go/ds': [] } } };
+  const need = (t) => T.needsPing(T.parseCandidate(t), cats);
+  assert.equal(need('omp:op-go/ds@high'), false, 'listed with a listed level');
+  assert.equal(need('omp:op-go/new-model'), true, 'not in the list');
+  assert.equal(need('opencode:opencode-go/ds'), false);
+  assert.equal(need('opencode:opencode-go/ds@high'), true, 'opencode variants are not listed');
+  assert.equal(need('claude:claude-sonnet-5-5@medium'), true, 'claude has no list');
+  assert.equal(need('claude'), false, 'a bare agent names no model');
+});
+
+test('route learn: what the user names is checked, pinged when unlisted, and saved for the next dispatch', () => {
+  const { root, desk, pings, saved } = learning();
+  assert.match(desk('route', 'learn', 'tester', '--use', 'omp:op-go/deepseek-v4.1-flash@high'), /routing tester saved: omp:op-go\/deepseek-v4.1-flash@high \| fallback claude:claude-haiku-5-5@low, codex:gpt-5.5@medium/);
+  assert.equal(pings().length, 0, 'a listed model is not pinged');
+  assert.equal(saved().tester.learned.from, 'user');
+  assert.match(desk('route', 'learn', 'tester', '--use', 'omp:op-go/deepseek-v4.1-flash@high'), /already uses/);
+  assert.throws(() => desk('route', 'learn', 'designer', '--use', 'omp:deepseek-v4.1-flash@high'), /needs provider\/model — did you mean omp:op-go\/deepseek-v4.1-flash@high/);
+  assert.throws(() => desk('route', 'learn', 'designer', '--use', 'omp:op-go/deepseek-v4.1-flash@medium'), /takes thinking levels/);
+  process.env.FAKE_PING_FAIL = '#medium';
+  assert.throws(() => desk('route', 'learn', 'writer', '--use', 'opencode:opencode-go/deepseek-v4.1-flash@medium'), /ping failed — provider.no-route: Variant unavailable/);
+  assert.equal(saved().writer, undefined, 'a failed ping saves nothing');
+  const out = desk('route', 'learn', 'writer', '--use', 'opencode:opencode-go/deepseek-v4.1-flash@high');
+  assert.match(out, /pinging opencode:opencode-go\/deepseek-v4.1-flash@high…[\s\S]*ping ok[\s\S]*routing writer saved/);
+  assert.deepEqual(pings().at(-1), ['opencode', 'run', '--archived', '--model', 'opencode-go/deepseek-v4.1-flash#high', 'Reply with exactly: PONG']);
+  assert.deepEqual(saved().writer.learned.verified, ['opencode:opencode-go/deepseek-v4.1-flash@high']);
+  const r = T.route(root, T.loadTeam(root), 'writer');
+  assert.deepEqual(r.args, ['--agent', 'opencode', '--model', 'opencode-go/deepseek-v4.1-flash#high']);
+  assert.match(desk('route', 'learn', 'reviewer', '--use', 'claude:claude-sonnet-5-5@high'), /engineer now uses the same effort: claude:claude-sonnet-5-5@high/, "the user's latest effort wins across saved roles");
+  assert.deepEqual(saved().engineer.use, ['claude:claude-sonnet-5-5@high']);
+  assert.match(desk('team', 'check'), /writer\s+opencode:[^\n]*\(saved by user\)[\s\S]*designer\s+[^\n]*\(default\)/);
+  const n = pings().length;
+  desk('route', 'learn', 'reviewer', '--use', 'claude:claude-opus-5-5@high');
+  desk('route', 'learn', 'designer', '--use', 'claude:claude-opus-5-5@high');
+  assert.equal(pings().length, n + 1, 'a passed ping is cached');
+});
+
+test('dispatch --prefer: pinged when unlisted, saved once the worker starts; a failed ping falls back and saves nothing', () => {
+  const { root, desk, saved, calls } = learning();
+  desk('team', 'allow', '--quote', 'ok');
+  desk('add', 'P1', 'tester: run unit tests', '--role', 'tester', '--files', 'A.swift');
+  const out = desk('dispatch', 'Q-1', '--prefer', 'claude:claude-sonnet-5-5@low');
+  assert.match(out, /\[PING\] claude:claude-sonnet-5-5@low: ok[\s\S]*routing tester ← claude:claude-sonnet-5-5@low \(saved/);
+  assert.equal(saved().tester.learned.from, 'dispatch');
+  desk('add', 'P1', 'tester: run ui tests', '--role', 'tester', '--files', 'B.swift');
+  assert.match(desk('dispatch', 'Q-2'), /Q-2 dispatched → claude:claude-sonnet-5-5@low/, 'the next dispatch uses it without --prefer');
+  process.env.FAKE_PING_FAIL = 'claude-opus';
+  desk('add', 'P1', 'engineer: api', '--role', 'engineer', '--files', 'C.swift');
+  const fb = desk('dispatch', 'Q-3', '--prefer', 'claude:claude-opus-5-5@high');
+  assert.match(fb, /\[SKIP\] claude:claude-opus-5-5@high: ping failed[\s\S]*Q-3 dispatched → claude:claude-sonnet-5-5@low/);
+  assert.deepEqual(saved().engineer.use, ['claude:claude-sonnet-5-5@low']);
+  assert.ok(!calls().some((c) => c.includes('claude-opus-5-5')), 'the failed candidate never reaches Orca');
+  delete process.env.FAKE_PING_FAIL;
+});
+
+test('default routing adapts: a default model missing from the machine\'s list is skipped, not an error', () => {
+  const { root } = learning();
+  const team = T.loadTeam(root);
+  team.routing = T.mergeRouting({ deny: [], roles: {} }, T.defaultRoles(['claude', 'opencode']));
+  fs.writeFileSync(path.join(root, '.desk', '.routing-cache.json'), JSON.stringify({ opencode: { at: Date.now(), models: { 'opencode-go/deepseek-v4.1-flash': [] }, error: null } }));
+  const r = T.route(root, team, 'tester');
+  assert.equal(r.kind, 'WORKER');
+  assert.equal(r.cand.text, 'claude:claude-haiku-5-5@low');
+  assert.match(r.skipped.join(' '), /hy4-flash-free@high: not in opencode's model list \(default routing\)/);
+});
+
+test('capture: naming an agent or model for a role asks the lead to record it', async () => {
+  const { detectSignals } = await import('../kit/method/hooks/_lib.mjs');
+  assert.ok(detectSignals('engineer dùng sonnet medium, fallback omp deepseek 4.1 flash high').includes('route'));
+  assert.ok(detectSignals('tester để haiku').includes('route'));
+  assert.ok(!detectSignals('chỉ engineer thôi').includes('route'));
+  assert.ok(!detectSignals('dùng sonnet').includes('route'));
 });

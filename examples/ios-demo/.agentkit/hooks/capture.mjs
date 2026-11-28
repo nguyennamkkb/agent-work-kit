@@ -1,10 +1,4 @@
 #!/usr/bin/env node
-// UserPromptSubmit: read what the user says and keep the desk in order without the agent spending tokens.
-//  - journal the prompt (.desk/.journal.jsonl, git-ignored);
-//  - bump importance of items the prompt mentions; "urgent" lifts the mentioned task to P0;
-//  - "remember …" becomes a memory, a correction becomes a lesson (same lesson again → ×+1);
-//  - speak only when there is something to say (a normal prompt costs 0 tokens).
-// Kit-managed: do not edit.
 import { readStdinJson, projectDir, deskRoot, emitContext, readState, writeState, detectSignals, journal, listReview } from './_lib.mjs';
 import { hasDesk, mutate, bumpMatches, remember, lesson, focus, log as logItem } from './store.mjs';
 import { orcaAvailable, workerContext } from './team.mjs';
@@ -44,13 +38,13 @@ mutate(droot, 'capture', (d) => {
   if (signals.includes('wait')) hints.push(`If a task now waits on someone or something: \`${C} wait ID --on user|Q-3|"who" [--until date]\`.`);
   if (signals.includes('drop')) hints.push(`If the user drops a task: \`${C} drop ID --why "<their words>"\` (undo-able).`);
   if (!hit.length && !hints.length) return { noop: true };
-  if (!hints.length) return { bookkeeping: true }; // only counters moved
+  if (!hints.length) return { bookkeeping: true };
 });
 
-// The words are kept only when they carry a signal; otherwise when and what was touched is enough.
 journal(droot, { s: state.session, signals: signals.length ? signals : undefined, bumped: hit.length ? hit.map((i) => i.id) : undefined, text: signals.length ? prompt.slice(0, 500) : undefined });
 const pending = listReview(droot).filter((r) => !r.archived && r.kind === 'P' && r.status === 'pending');
 if (signals.includes('approve') && pending.length) hints.push(`If this approves ${pending.map((p) => p.id).join(' / ')}: \`${C} approve P-… --quote "<their words>"\`, then apply it.`);
+if (signals.includes('route')) hints.push(`If the user named an agent/model for a role, record it now: \`${C} route learn <role> --use agent:provider/model@effort [--fallback …]\` (models outside the agent's list are pinged first; ask one question if the agent or provider is unclear).`);
 if (signals.includes('team') && orcaAvailable() && !state.teamAllowed) hints.push(`Team mode is available (Orca). Before the first worker, ask the user once; after their yes: \`${C} team allow --quote "…"\`. Guide: .agentkit/docs/team.md.`);
 const once = (key) => {
   state.reminded ??= {};

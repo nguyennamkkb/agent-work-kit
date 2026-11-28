@@ -73,8 +73,7 @@ ol.hist{list-style:none;padding:0;margin:8px 0 0;border-left:2px solid var(--lin
   <div class="foot" id="foot"></div>
 </main>
 <dialog id="dlg"><div class="dlg-h"><b id="dlg-t"></b><span style="flex:1"></span><button id="dlg-x">Close</button></div><div class="dlg-b" id="dlg-b"></div></dialog>
-<script>
-const D = /*DESK*/{"items":[],"goal":[],"recent":[],"metrics":{"health":{"level":"green","reasons":[]},"perDay":[],"quiet":[],"models":[]},"team":{},"plans":{}}/*END*/;
+<script>const D = /*DESK*/{"items":[],"goal":[],"recent":[],"metrics":{"health":{"level":"green","reasons":[]},"perDay":[],"quiet":[],"models":[]},"team":{},"plans":{}}/*END*/;
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const KEY = 'agentkit-desk-ui';
@@ -98,7 +97,6 @@ const prio = (p) => (p ? `<span class="p ${esc(p)}">${esc(p)}</span>` : '');
 const cmd = (c) => `<span class="cmd"><code>${esc(c)}</code><button data-copy="${esc(c)}" title="copy">⧉</button></span>`;
 const C = 'node .agentkit/desk.mjs';
 
-// ---------------------------------------------------------------- header + KPIs
 document.title = `Desk — ${D.title || 'Work'}`;
 $('title').textContent = `Desk — ${D.title || 'Work'}`;
 const H = D.metrics.health || { level: 'green', reasons: [] };
@@ -128,7 +126,6 @@ $('kpis').innerHTML = [
   kpi('rework', `${Math.round((M.rework || 0) * 100)}%`),
 ].join('');
 
-// ---------------------------------------------------------------- needs you
 const needs = [];
 for (const t of T.filter((x) => x.question)) needs.push({ icon: '❓', id: t.id, text: `${roleOf(t)} asks: “${t.question.text}”`, age: t.question.at, c: `${C} reply ${t.id} "…"` });
 for (const t of by('review')) needs.push({ icon: '🟡', id: t.id, text: `reported done${t.sha ? ' @' + t.sha : ''} — verify the diff against the plan`, age: lastH(t).at, c: `${C} done ${t.id} --sha ${t.sha || '<sha>'} --proof "…"` });
@@ -141,7 +138,6 @@ $('needs-n').textContent = needs.length || '';
 $('needs-b').innerHTML = needs.length ? needs.map((n) => `<div class="row"><span>${n.icon}</span><div class="what">${n.noLink ? `<b>${esc(n.id)}</b>` : idLink(n.id)} ${esc(n.text)}${n.age ? ` <span class="muted small">· ${ago(n.age)} ago</span>` : ''}</div>${cmd(n.c)}</div>`).join('') : '<div class="empty">Nothing needs you right now.</div>';
 if (!needs.length) $('needs').classList.remove('attn');
 
-// ---------------------------------------------------------------- team
 const quiet = new Map((M.quiet || []).map((q) => [q.id, q.minutes]));
 const card = (t) => {
   const r = roleOf(t);
@@ -168,7 +164,6 @@ const idle = (D.team.roles || []).filter((r) => !busyRoles.has(r) && r !== 'rese
 $('team-n').textContent = `${running.length} running${by('review').filter((t) => !lead(t)).length ? ` · ${by('review').filter((t) => !lead(t)).length} to verify` : ''}`;
 $('team').innerHTML = (teamTasks.map(card).join('') + idle.map((r) => `<div class="card idle" style="--rc:${rc(r)}"><div class="role">${esc(r)}</div><div class="title muted">idle</div></div>`).join('')) || '<div class="empty">Nobody is working on a task. Start one, or hand work to the team.</div>';
 
-// ---------------------------------------------------------------- timeline (one lane per role)
 const spans = [];
 for (const t of T) { const s = startedAt(t); if (s) spans.push({ id: t.id, text: t.text, role: roleOf(t), start: Date.parse(s), end: ['done', 'dropped', 'failed'].includes(t.status) ? Date.parse(lastH(t).at) : NOW, status: t.status }); }
 for (const e of D.recent || []) if (e.started && !spans.some((x) => x.id === e.id) && e.kind !== 'memory' && e.kind !== 'lesson') spans.push({ id: e.id, text: e.text, role: !e.executor || e.executor === 'lead' ? 'lead' : e.role || 'engineer', start: Date.parse(e.started), end: Date.parse(e.closed), status: e.status });
@@ -197,7 +192,6 @@ function timeline() {
 }
 timeline();
 
-// ---------------------------------------------------------------- plans
 const planNames = [...new Set([...T.map((t) => t.plan), ...(D.recent || []).map((e) => e.plan), ...Object.keys(D.plans || {})].filter(Boolean))].sort();
 $('plans').innerHTML = planNames.length ? planNames.map((p) => {
   const open = T.filter((t) => t.plan === p && !['done', 'dropped', 'failed'].includes(t.status));
@@ -211,11 +205,9 @@ $('plans').innerHTML = planNames.length ? planNames.map((p) => {
     <div class="bar" style="margin-top:5px">${seg(closedIds.size, 'var(--ok)')}${seg(open.filter((t) => t.status === 'review').length, 'var(--rev)')}${seg(open.filter((t) => t.status === 'doing').length, 'var(--accent)')}${seg(open.filter((t) => t.status === 'waiting').length, 'var(--wait)')}</div></div></div>`;
 }).join('') : '<div class="empty">No plans — solo work so far.</div>';
 
-// ---------------------------------------------------------------- models
 const ms = (M.models || []).sort((a, b) => b.dispatched - a.dispatched);
 $('models').innerHTML = ms.length ? `<table><thead><tr><th>agent · model</th><th class="num">runs</th><th class="num">running</th><th class="num">done</th><th class="num">failed</th><th class="num">success</th><th class="num">cycle</th></tr></thead><tbody>${ms.map((m) => `<tr><td class="mono">${esc(m.model)}</td><td class="num">${m.dispatched}</td><td class="num">${m.running || 0}</td><td class="num">${m.done}</td><td class="num">${m.failed}</td><td class="num">${m.done + m.failed ? Math.round((100 * m.done) / (m.done + m.failed)) + '%' : '–'}</td><td class="num">${m.cycleHours == null ? '–' : dur(m.cycleHours * 36e5)}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">No worker runs yet.</div>';
 
-// ---------------------------------------------------------------- board
 const opts = (k, vals) => `<select data-f="${k}"><option value="">${k}: all</option>${vals.map((v) => `<option ${ui.f[k] === v ? 'selected' : ''}>${esc(v)}</option>`).join('')}</select>`;
 $('filters').innerHTML = opts('plan', planNames) + opts('role', [...new Set(T.map(roleOf))].sort()) + opts('agent', [...new Set(T.map((t) => t.agent).filter(Boolean))].sort()) + `<input type="search" data-f="q" placeholder="search…" value="${esc(ui.f.q || '')}">`;
 function board() {
@@ -233,7 +225,6 @@ function board() {
 }
 board();
 
-// ---------------------------------------------------------------- activity
 const ev = [];
 for (const t of T) for (const h of t.history || []) ev.push({ at: h.at, id: t.id, status: h.status, note: h.note, role: roleOf(t) });
 for (const e of D.recent || []) if (!T.some((t) => t.id === e.id)) ev.push({ at: e.closed, id: e.id, status: e.status, note: e.proof || e.why || e.text, role: e.kind === 'task' ? (!e.executor || e.executor === 'lead' ? 'lead' : e.role) : e.kind });
@@ -241,7 +232,6 @@ ev.sort((a, b) => String(b.at).localeCompare(String(a.at)));
 const evIcon = (e) => (/QUESTION/.test(e.note || '') ? '❓' : /dispatched/.test(e.note || '') ? '🚀' : /worker_done/.test(e.note || '') ? '📨' : /lease/.test(e.note || '') ? '🔒' : /answered|sent /.test(e.note || '') ? '💬' : ICON[e.status] || '·');
 $('feed').innerHTML = ev.length ? ev.slice(0, 60).map((e) => `<div class="row"><time title="${esc(e.at)}">${ago(e.at)} ago</time><span>${evIcon(e)}</span><div class="what ell">${idLink(e.id)} <span class="muted">${esc(e.role || '')}</span> ${esc(e.note || e.status)}</div></div>`).join('') : '<div class="empty">No activity yet.</div>';
 
-// ---------------------------------------------------------------- knowledge tabs
 const mem = D.items.filter((i) => i.kind === 'memory').sort((a, b) => (b.pin ? 1 : 0) - (a.pin ? 1 : 0) || sortP(a, b));
 const les = D.items.filter((i) => i.kind === 'lesson').sort((a, b) => (b.seen || 1) - (a.seen || 1));
 const tabs = { memory: [`Memory ${mem.length}`, () => mem.map((m) => `<div class="row">${m.pin ? '📌' : '·'}<div class="what"><b>${esc(m.id)}</b> ${prio(m.prio)} ${esc(m.text)} <span class="muted small">×${m.uses || 1}</span></div></div>`).join('')],
@@ -254,7 +244,6 @@ function knowledge() {
 }
 knowledge();
 
-// ---------------------------------------------------------------- detail drawer
 function openTask(id) {
   const t = T.find((x) => x.id === id) || D.items.find((x) => x.id === id) || (D.recent || []).filter((e) => e.id === id).at(-1);
   if (!t) return;
@@ -268,7 +257,6 @@ function openTask(id) {
 $('dlg-x').onclick = () => $('dlg').close();
 $('dlg').addEventListener('close', () => { delete ui.open; saveUi(); });
 
-// ---------------------------------------------------------------- interactions, persistence, refresh
 document.addEventListener('click', (e) => {
   const o = e.target.closest('[data-open]'); if (o) return openTask(o.dataset.open);
   const w = e.target.closest('[data-win]'); if (w) { ui.win = w.dataset.win; saveUi(); return timeline(); }

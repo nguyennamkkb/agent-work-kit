@@ -47,7 +47,7 @@
     "opencode"
   ],
   "installedAt": "2026-11-22T04:38:04.665Z",
-  "updatedAt": "2026-11-22T06:26:00.461Z",
+  "updatedAt": "2026-11-28T13:36:51.632Z",
   "files": {
     "AGENTS.md": {
       "kind": "block",
@@ -55,59 +55,59 @@
     },
     ".agentkit/hooks/_lib.mjs": {
       "kind": "file",
-      "hash": "ebe7e33457ad418c"
+      "hash": "9356f9d348358a75"
     },
     ".agentkit/hooks/capture.mjs": {
       "kind": "file",
-      "hash": "d52809dc15e5f5f6"
+      "hash": "528e1161b0747fcc"
     },
     ".agentkit/hooks/cli.mjs": {
       "kind": "file",
-      "hash": "1e4d23e3011d8de4"
+      "hash": "31386c67dc9e20de"
     },
     ".agentkit/hooks/dashboard.html": {
       "kind": "file",
-      "hash": "1c6dca71e861e9b3"
+      "hash": "6923d203e81fd8a1"
     },
     ".agentkit/hooks/desk-check.mjs": {
       "kind": "file",
-      "hash": "964d158e14572b19"
+      "hash": "488328cfafebae60"
     },
     ".agentkit/hooks/guard.mjs": {
       "kind": "file",
-      "hash": "e9a4931ed819c60e"
+      "hash": "46e0ea9509979d55"
     },
     ".agentkit/hooks/session-start.mjs": {
       "kind": "file",
-      "hash": "4205ea4f2048db62"
+      "hash": "b57a8c3f8d641848"
     },
     ".agentkit/hooks/stop-check.mjs": {
       "kind": "file",
-      "hash": "304c22054cc61e45"
+      "hash": "843fc6bf730a3c07"
     },
     ".agentkit/hooks/store.mjs": {
       "kind": "file",
-      "hash": "5b9571d6dc6835c2"
+      "hash": "5a25457396007672"
     },
     ".agentkit/hooks/team.mjs": {
       "kind": "file",
-      "hash": "984cf57f7d210c85"
+      "hash": "09fb685603cc7803"
     },
     ".agentkit/desk.mjs": {
       "kind": "file",
-      "hash": "44bd807620c38baa"
+      "hash": "3a7eff601a1438e7"
     },
     ".agentkit/docs/team.md": {
       "kind": "file",
-      "hash": "44d3f7a3e2d59052"
+      "hash": "8bd5b2037407b5c1"
     },
     ".agents/skills/desk/SKILL.md": {
       "kind": "file",
-      "hash": "23043115a3cec99a"
+      "hash": "f6c37c80e72d3981"
     },
     ".opencode/plugins/agentkit-desk/index.js": {
       "kind": "file",
-      "hash": "a90e52690feabc8f"
+      "hash": "4e57a3f2fa5da4fb"
     }
   }
 }

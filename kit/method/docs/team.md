@@ -6,6 +6,8 @@ You lead. Your job is throughput **and** quality: keep a worker busy on the next
 
 ## Before anything
 1. `C team check` — Orca found? routing valid? build/test commands set? Missing build/test → find them and `C team set build "…"`, `C team set test.command "…"`, `C team set test.exclusive simulator` (a resource only one test run may hold), `C team set leadFiles "AppRouter.swift,project.pbxproj"` (files only you edit).
+   Routing (`.desk/team.json` → `routing.roles`) defaults to Claude models (sonnet@medium builds, haiku@low tests and writes, opus@high reviews); `team check` marks each role `(default)` or `(saved)`.
+   **Whenever the user names an agent or model for a role, record it at once:** `C route learn engineer --use claude:claude-sonnet-5-5@medium --fallback omp:op-go/deepseek-v4.1-flash@high`. omp/opencode/pi need `provider/model` (`C team check --live` refreshes the lists). A model outside the agent's list, any claude/codex model, and an opencode or pi effort is pinged first (a one-line PONG run); a failed ping saves nothing — tell the user the error. `dispatch --prefer X` records X the same way once the worker starts. Effort syntax: claude `@low|medium|high`, omp `@<thinking level of that model>`, opencode `@<variant>` (sent as `model#variant`), pi `@off…max`.
 2. **Ask the user once per session** in one sentence: what you will hand out, how many workers, why. After their yes: `C team allow --quote "<their words>"`. `dispatch` refuses until then.
 3. Run `orca skills get orchestration` once (Orca's own lifecycle rules) if you have not this session.
 
@@ -51,6 +53,7 @@ Two plans run together only when neither depends on the other and their files ar
 | fixer | reproduces one failure with a test, fixes, builds, commits | touches files outside the failure |
 | writer | decided doc/string edits, keeps keys and format specifiers | edits code |
 | reviewer | read-only diff review against plan + rules | edits |
+| scout | read-only Orca worker: maps files, entry points, commands and risks before a plan | edits |
 
 **Exclusive resource** (`test.exclusive`, e.g. a simulator): exactly one tester runs tests at a time; it takes `worker Q-x lease acquire` before its first run and releases before done. `C lease show` before dispatching a tester.
 

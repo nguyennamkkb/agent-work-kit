@@ -1,6 +1,4 @@
 #!/usr/bin/env node
-// After a direct write inside .desk/ (rules.local.md, team.json, plans, proposals): check what could not be checked
-// before the write. Exit 2 + stderr tells the agent what to fix. Kit-managed: do not edit.
 import path from 'node:path';
 import { read, readStdinJson, projectDir, deskRoot, normalizeWrites, DESK, LOCAL_RULES, lintLocalRules, toPosix } from './_lib.mjs';
 import { loadTeam, routingErrors } from './team.mjs';

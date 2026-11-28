@@ -1,5 +1,3 @@
-// agent-work-kit — the `desk` command: `node .agentkit/desk.mjs <verb> …`. One line of output per change.
-// Kit-managed: do not edit.
 import path from 'node:path';
 import { projectDir, deskRoot, readState, journal } from './_lib.mjs';
 import * as S from './store.mjs';
@@ -16,12 +14,13 @@ Memory  remember "fact/decision" [--pin] · forget ID --why "…" · touch ID
 Learn   lesson "…" · propose "title" --change "…" --why "…" [--from L-1] · approve P-1 --quote "…" · reject P-1
 Goal    goal "line" ["line"…] · inbox "…" · file ID task|memory|lesson [P0-3]
 Team    team [status|check|allow --quote "…"|set key value] · plan SLUG --goal "…" · route ROLE [--fails n]
+        route learn ROLE --use agent:provider/model@effort[,…] [--fallback …] [--escalate …] [--reping]  (record what the user named; pings unknown models)
         dispatch ID [--role r] [--spec f] [--worktree path:…] [--prefer agent:model@effort] [--fails n] [--terminal h] [--keep-open] [--dry-run]
         mail · reply ID "…" · send ID --subject PAUSE|RESUME|"REBASE <ref>"|ABORT --body "…" · sync [--apply] · fleet
         lease acquire|release|show [name] --holder ID · wt status|open SLUG [--base ref]|park|close|drop SLUG --yes|tidy · gate SLUG
 Worker  worker ID status "…" | ask "…" | escalate "…" | inbox | lease acquire|release | done --outcome succeeded|failed --summary "…" [--no-commit]`;
 
-const BOOL = new Set(['now', 'all', 'pin', 'yes', 'apply', 'dry-run', 'keep-open', 'force', 'no-commit', 'live', 'json']);
+const BOOL = new Set(['now', 'all', 'pin', 'yes', 'apply', 'dry-run', 'keep-open', 'force', 'no-commit', 'live', 'json', 'reping']);
 export function parse(argv) {
   const pos = [];
   const o = {};
@@ -42,9 +41,10 @@ const ok = (s) => `✓ ${s}`;
 const line = (t) => `${S.ICON[t.status] ?? '·'} ${S.fmt(t)}${t.status === 'waiting' ? ` (${[t.on && 'on ' + t.on, t.until && 'until ' + t.until].filter(Boolean).join(', ')})` : ''}`;
 const isPrio = (s) => /^P[0-3]$/i.test(s ?? '');
 
-export function run(argv, { cwd = process.cwd(), out = (s) => process.stdout.write(s + '\n') } = {}) {
-  const checkout = projectDir({ cwd });
-  const droot = deskRoot(checkout);
+export function run(argv, { cwd = process.cwd(), home = null, out = (s) => process.stdout.write(s + '\n') } = {}) {
+  let checkout = projectDir({ cwd });
+  let droot = deskRoot(checkout);
+  if (!S.hasDesk(droot) && home && S.hasDesk(deskRoot(home))) (checkout = home), (droot = deskRoot(home));
   const { pos, o } = parse(argv);
   const verb = (pos.shift() ?? 'status').toLowerCase();
   const print = (x) => (Array.isArray(x) ? x.forEach((l) => out(l)) : out(x));
@@ -184,7 +184,6 @@ export function run(argv, { cwd = process.cwd(), out = (s) => process.stdout.wri
       return print(ok(`${pos[0]} → ${it.id} ${it.kind}`));
     }
 
-    // ---------------------------------------------------------------- team
     case 'team': {
       const sub = pos.shift() ?? 'status';
       if (sub === 'allow') {
@@ -198,8 +197,8 @@ export function run(argv, { cwd = process.cwd(), out = (s) => process.stdout.wri
       const team = T.loadTeam(droot);
       if (sub === 'check') {
         const cats = T.catalogs(droot, { refresh: !!o.live });
-        const errs = T.routingErrors(team.routing, cats);
-        return print([`orca: ${T.orcaAvailable() ? 'found' : 'not installed (team mode off; solo + subagents still work)'}`, `main: ${team.mainBranch} · build: ${team.build || '(not set)'} · test: ${team.test.command || '(not set)'}${team.test.exclusive ? ` · exclusive: ${team.test.exclusive}` : ''}`, ...Object.entries(team.routing.roles).map(([r, x]) => `  ${r.padEnd(10)} ${(x.use ?? []).join(' → ')} | fallback ${(x.fallback ?? []).join(', ')}${x.escalate ? ` | escalate ${x.escalate.join(', ')}` : ''}`), ...(Object.keys(team.routing.roles).length ? [] : ['  (no agent CLI found for routing; set routing.roles in .desk/team.json)']), errs.length ? `routing: ${errs.length} error(s): ${errs.join('; ')}` : 'routing: valid']);
+        const errs = T.routingErrors(T.savedRouting(team.routing), cats);
+        return print([`orca: ${T.orcaAvailable() ? 'found' : 'not installed (team mode off; solo + subagents still work)'}`, `main: ${team.mainBranch} · build: ${team.build || '(not set)'} · test: ${team.test.command || '(not set)'}${team.test.exclusive ? ` · exclusive: ${team.test.exclusive}` : ''}`, ...Object.entries(team.routing.roles).map(([r, x]) => `  ${r.padEnd(10)} ${(x.use ?? []).join(' → ')} | fallback ${(x.fallback ?? []).join(', ')}${x.escalate ? ` | escalate ${x.escalate.join(', ')}` : ''} ${team.routing.defaults.includes(r) ? '(default)' : `(saved${x.learned?.from ? ` by ${x.learned.from}` : ''})`}`), ...(Object.keys(team.routing.roles).length ? [] : ['  (no agent CLI found for routing; set routing.roles in .desk/team.json)']), ...Object.entries(cats).filter(([, c]) => c.error && !/not installed/.test(c.error)).map(([a, c]) => `  models ${a}: ${c.error}`), errs.length ? `routing: ${errs.length} error(s): ${errs.join('; ')}` : 'routing: valid']);
       }
       const s = T.teamSummary(droot);
       return print([`team: orca ${s.orca ? 'found' : 'not installed'} · workers ${s.running.length}/${team.maxWorkers} · ${s.allowed ? 'allowed this session' : 'not allowed yet this session (ask the user once, then team allow --quote)'}`, ...s.running.map((t) => `  ${line(t)} ${t.route ?? ''}`), ...s.review.map((t) => `  verify ${line(t)}${t.sha ? ' @' + t.sha : ''}`), ...s.questions.map((t) => `  answer ${t.id}: ${t.question.text}`), ...T.wtStatus(droot, team).map((w) => `  [${w.state}] plan/${w.slug} ahead ${w.ahead} · ${w.todo}`), ...Object.entries(s.leases ?? {}).map(([k, l]) => `  🔒 ${k} ${l.holder}`)]);
@@ -209,6 +208,15 @@ export function run(argv, { cwd = process.cwd(), out = (s) => process.stdout.wri
       return print(ok(`${path.relative(checkout, r.file)} ${r.created ? 'created — fill Decisions, Order and Done criteria, commit it' : 'exists'}`));
     }
     case 'route': {
+      if (pos[0] === 'learn') {
+        const list = (v) => (typeof v === 'string' ? v.split(',').map((x) => x.trim()).filter(Boolean) : undefined);
+        const pings = [];
+        const r = T.learnRoute(droot, pos[1], { use: list(o.use), fallback: list(o.fallback), escalate: list(o.escalate), reping: !!o.reping, onPing: (t) => pings.push(`pinging ${t}…`) });
+        if (r.unchanged) return print(ok(`routing ${r.role} already uses ${list(o.use).join(', ')}`));
+        const lines = [...pings, ...r.notes];
+        if (!r.saved) throw new Error([...lines, `routing ${r.role} not saved: ${r.errors.join('; ')}`].join('\n'));
+        return print([...lines, ok(`routing ${r.role} saved: ${r.entry.use.join(' → ')} | fallback ${r.entry.fallback.join(', ')}${r.entry.escalate ? ` | escalate ${r.entry.escalate.join(', ')}` : ''}`)]);
+      }
       const r = T.route(droot, T.loadTeam(droot), pos[0] ?? 'engineer', { fails: Number(o.fails ?? 0), prefer: o.prefer, level: o.level, terminal: o.terminal });
       return print([...(r.skipped ?? []).map((s) => `skip ${s}`), `${r.kind}${r.cand ? ` ${r.cand.text}` : ''}${r.args ? ` → ${r.args.join(' ')}` : ''}${r.detail ? ` — ${r.detail}` : ''}`]);
     }
@@ -239,19 +247,20 @@ export function run(argv, { cwd = process.cwd(), out = (s) => process.stdout.wri
     case 'wt': {
       const team = T.loadTeam(droot);
       const sub = pos.shift() ?? 'status';
+      const done = (x) => (S.refreshViews(droot), x);
       if (sub === 'status') {
         const st = T.wtStatus(droot, team);
         return print(st.length ? st.map((w) => `[${w.state}] plan/${w.slug} ahead ${w.ahead} behind ${w.behind} · tasks ${w.tasks - w.open}/${w.tasks} closed${w.path ? ` · ${w.path}` : ''}\n   → ${w.todo}`) : 'worktrees: none');
       }
       if (sub === 'open') {
-        const r = T.wtOpen(droot, team, pos[0], { base: o.base });
+        const r = done(T.wtOpen(droot, team, pos[0], { base: o.base }));
         return print(ok(`${r.existed ? 'exists' : r.reopened ? 'reopened' : 'opened'} ${r.path}`));
       }
-      if (sub === 'park') return print(ok(`plan/${pos[0]} parked @ ${T.wtPark(droot, pos[0]).sha.slice(0, 9)} (wt open ${pos[0]} reopens it)`));
-      if (sub === 'close') return T.wtClose(droot, team, pos[0]), print(ok(`plan/${pos[0]} closed (merged)`));
-      if (sub === 'drop') return print(ok(`plan/${pos[0]} dropped (git branch plan/${pos[0]} ${T.wtDrop(droot, pos[0], { yes: o.yes }).sha.slice(0, 9)} restores it)`));
+      if (sub === 'park') return print(ok(`plan/${pos[0]} parked @ ${done(T.wtPark(droot, pos[0])).sha.slice(0, 9)} (wt open ${pos[0]} reopens it)`));
+      if (sub === 'close') return done(T.wtClose(droot, team, pos[0])), print(ok(`plan/${pos[0]} closed (merged)`));
+      if (sub === 'drop') return print(ok(`plan/${pos[0]} dropped (git branch plan/${pos[0]} ${done(T.wtDrop(droot, pos[0], { yes: o.yes })).sha.slice(0, 9)} restores it)`));
       if (sub === 'tidy') {
-        const acts = T.wtTidy(droot, team, { dryRun: o.dryRun });
+        const acts = done(T.wtTidy(droot, team, { dryRun: o.dryRun }));
         return print(acts.length ? acts : 'tidy: nothing to do');
       }
       throw new Error('wt status|open|park|close|drop|tidy');
@@ -270,7 +279,6 @@ export function run(argv, { cwd = process.cwd(), out = (s) => process.stdout.wri
   }
 }
 
-// ---------------------------------------------------------------- proposals (review/P-*.md)
 import fs from 'node:fs';
 import { DESK, listReview, setStatus, today } from './_lib.mjs';
 function propose(droot, title, o) {
@@ -298,9 +306,9 @@ function decide(droot, id, verb, quote) {
   return p;
 }
 
-export function main(argv) {
+export function main(argv, { home = null } = {}) {
   try {
-    run(argv);
+    run(argv, { home });
     return 0;
   } catch (e) {
     process.stderr.write(`✗ ${e.message}\n`);

@@ -44,6 +44,7 @@ mutate(droot, 'capture', (d) => {
 journal(droot, { s: state.session, signals: signals.length ? signals : undefined, bumped: hit.length ? hit.map((i) => i.id) : undefined, text: signals.length ? prompt.slice(0, 500) : undefined });
 const pending = listReview(droot).filter((r) => !r.archived && r.kind === 'P' && r.status === 'pending');
 if (signals.includes('approve') && pending.length) hints.push(`If this approves ${pending.map((p) => p.id).join(' / ')}: \`${C} approve P-… --quote "<their words>"\`, then apply it.`);
+if (signals.includes('route')) hints.push(`If the user named an agent/model for a role, record it now: \`${C} route learn <role> --use agent:provider/model@effort [--fallback …]\` (models outside the agent's list are pinged first; ask one question if the agent or provider is unclear).`);
 if (signals.includes('team') && orcaAvailable() && !state.teamAllowed) hints.push(`Team mode is available (Orca). Before the first worker, ask the user once; after their yes: \`${C} team allow --quote "…"\`. Guide: .agentkit/docs/team.md.`);
 const once = (key) => {
   state.reminded ??= {};
