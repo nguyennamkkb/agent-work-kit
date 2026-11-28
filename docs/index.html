@@ -837,7 +837,7 @@ h3{font-stretch:100%;font-weight:700;font-size:1.2rem;line-height:1.3}
   var start = null;
   try { start = new URLSearchParams(location.search).get('lang'); } catch (e) {}
   if (start !== 'vi' && start !== 'en') { try { start = localStorage.getItem(KEY); } catch (e) {} }
-  if (start !== 'vi' && start !== 'en') { start = /^vi\b/i.test(navigator.language || '') ? 'vi' : 'en'; }
+  if (start !== 'vi' && start !== 'en') { start = 'vi'; }
   if (start === 'en') setLang('en', false);
 })();
 </script>

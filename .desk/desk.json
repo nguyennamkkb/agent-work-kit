@@ -1,0 +1,152 @@
+{
+  "version": 2,
+  "seq": {
+    "Q": 3,
+    "M": 0,
+    "L": 0,
+    "P": 0
+  },
+  "goal": [],
+  "items": [
+    {
+      "id": "Q-1",
+      "kind": "task",
+      "created": "2026-11-28",
+      "last": "2026-11-28",
+      "uses": 1,
+      "status": "done",
+      "prio": "P1",
+      "text": "Routing: Claude defaults, learn what the user names per role, ping-pong unlisted models",
+      "done": "npm test green; route learn saves/rejects correctly with real claude/omp/opencode",
+      "history": [
+        {
+          "at": "2026-11-28T13:23:24Z",
+          "status": "todo",
+          "note": "added"
+        },
+        {
+          "at": "2026-11-28T13:23:24Z",
+          "status": "doing",
+          "note": "started"
+        },
+        {
+          "at": "2026-11-28T13:23:24Z",
+          "status": "done",
+          "note": "npm test 70/70 (clean env and session env); real route learn: claude sonnet ping ok + saved, omp missing provider rejected with suggestion, opencode #medium rejected by ping, opencode #high saved; plan in PLAN-routing.md"
+        }
+      ],
+      "proof": "npm test 70/70 (clean env and session env); real route learn: claude sonnet ping ok + saved, omp missing provider rejected with suggestion, opencode #medium rejected by ping, opencode #high saved; plan in PLAN-routing.md",
+      "closed": "2026-11-28",
+      "archived": "2026-11-28"
+    },
+    {
+      "id": "Q-2",
+      "kind": "task",
+      "created": "2026-11-28",
+      "last": "2026-11-28",
+      "uses": 1,
+      "status": "done",
+      "prio": "P1",
+      "text": "tester: run npm test and report pass/fail counts",
+      "done": "worker reports the npm test summary (tests/pass/fail)",
+      "role": "tester",
+      "history": [
+        {
+          "at": "2026-11-28T13:25:48Z",
+          "status": "todo",
+          "note": "added"
+        },
+        {
+          "at": "2026-11-28T13:26:11Z",
+          "status": "doing",
+          "note": "dispatched ctx_6eec9ea2188c via opencode:opencode-go/hy4-flash-free@high"
+        },
+        {
+          "at": "2026-11-28T13:26:16Z",
+          "status": "doing",
+          "note": "status: starting: will run npm test and report pass/fail counts"
+        },
+        {
+          "at": "2026-11-28T13:26:26Z",
+          "status": "doing",
+          "note": "status: Q-2 starting: will run npm test and report pass/fail counts"
+        },
+        {
+          "at": "2026-11-28T13:26:44Z",
+          "status": "doing",
+          "note": "status: npm test green: 70 tests, 70 pass, 0 fail at f2b1ac4c70baf23edaae79f082ddc9fee56c4c28"
+        },
+        {
+          "at": "2026-11-28T13:26:48Z",
+          "status": "review",
+          "note": "worker_done succeeded"
+        },
+        {
+          "at": "2026-11-28T13:26:50Z",
+          "status": "review",
+          "note": "status: Q-2 npm test green: 70 tests, 70 pass, 0 fail at f2b1ac4c70baf23edaae79f082ddc9fee56"
+        },
+        {
+          "at": "2026-11-28T13:26:50Z",
+          "status": "review",
+          "note": "worker_done: Q-2 succeeded"
+        },
+        {
+          "at": "2026-11-28T13:27:02Z",
+          "status": "done",
+          "note": "worker (opencode-go/hy4-flash-free#high via Orca) ran npm test on HEAD f2b1ac4 + working tree: 70 tests, 70 pass, 0 fail; no files modified; matches lead's own run (70/70)"
+        }
+      ],
+      "executor": "orca",
+      "dispatch": "ctx_6eec9ea2188c",
+      "terminal": "term_9f55db64-8b16-42b2-a534-91836b0ec348",
+      "orcaTask": "task_efa45898ff91",
+      "agent": "opencode",
+      "model": "opencode-go/hy4-flash-free",
+      "route": "tester:opencode:opencode-go/hy4-flash-free@high",
+      "spec": ".desk/plans/specs/Q-2.sent.md",
+      "worktree": "path:/Volumes/Hub/dev/agent-work-kit",
+      "baseSha": "f2b1ac4c70baf23edaae79f082ddc9fee56c4c28",
+      "run": "run_70fc9049f823",
+      "proof": "worker (opencode-go/hy4-flash-free#high via Orca) ran npm test on HEAD f2b1ac4 + working tree: 70 tests, 70 pass, 0 fail; no files modified; matches lead's own run (70/70)",
+      "actualFiles": 0,
+      "sha": "f2b1ac4c70ba",
+      "closed": "2026-11-28",
+      "archived": "2026-11-28"
+    },
+    {
+      "id": "Q-3",
+      "kind": "task",
+      "created": "2026-11-28",
+      "last": "2026-11-28",
+      "uses": 1,
+      "status": "done",
+      "prio": "P1",
+      "text": "Make tuned team.json routing the kit default, allow free models, commit and push",
+      "done": "71/71 tests; branch pushed",
+      "history": [
+        {
+          "at": "2026-11-28T13:43:29Z",
+          "status": "todo",
+          "note": "added"
+        },
+        {
+          "at": "2026-11-28T13:43:29Z",
+          "status": "doing",
+          "note": "started"
+        },
+        {
+          "at": "2026-11-28T13:43:29Z",
+          "status": "done",
+          "note": "npm test 71/71 (clean + session env); pushed origin/routing-learn"
+        }
+      ],
+      "proof": "npm test 71/71 (clean + session env); pushed origin/routing-learn",
+      "sha": "d90d818",
+      "closed": "2026-11-28",
+      "archived": "2026-11-28"
+    }
+  ],
+  "leases": {},
+  "updated": "2026-11-28T13:43:29Z"
+}

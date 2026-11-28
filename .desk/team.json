@@ -1,0 +1,100 @@
+{
+  "build": "",
+  "test": {
+    "command": "npm test",
+    "exclusive": "",
+    "scope": ""
+  },
+  "leadFiles": [],
+  "maxWorkers": 3,
+  "maxPlanWorktrees": 3,
+  "notes": [],
+  "routing": {
+    "roles": {
+      "engineer": {
+        "use": [
+          "claude:claude-sonnet-5-5@medium"
+        ],
+        "fallback": [
+          "omp:op-go/deepseek-v4.1-flash@high",
+          "opencode:opencode-go/deepseek-v4.1-flash@high"
+        ],
+        "learned": {
+          "at": "2026-11-28T13:21:33Z",
+          "from": "user",
+          "verified": [
+            "claude:claude-sonnet-5-5@medium"
+          ]
+        }
+      },
+      "writer": {
+        "use": [
+          "opencode:opencode-go/deepseek-v4.1-flash@high"
+        ],
+        "fallback": [
+          "claude:claude-haiku-5-5@low",
+          "claude:claude-sonnet-5-5@medium",
+          "omp"
+        ],
+        "learned": {
+          "at": "2026-11-28T13:22:05Z",
+          "from": "user",
+          "verified": [
+            "opencode:opencode-go/deepseek-v4.1-flash@high"
+          ]
+        }
+      },
+      "tester": {
+        "use": [
+          "opencode:opencode-go/hy4-flash-free@high"
+        ],
+        "fallback": [
+          "claude:claude-haiku-5-5@low",
+          "claude:claude-sonnet-5-5@medium",
+          "omp"
+        ],
+        "learned": {
+          "at": "2026-11-28T13:26:11Z",
+          "from": "dispatch",
+          "verified": [
+            "opencode:opencode-go/hy4-flash-free@high"
+          ]
+        }
+      },
+      "scout": {
+        "use": [
+          "opencode:opencode-go/hy4-flash-free@high"
+        ],
+        "fallback": [
+          "claude:claude-haiku-5-5@low",
+          "claude:claude-sonnet-5-5@medium",
+          "omp"
+        ],
+        "learned": {
+          "at": "2026-11-28T13:29:33Z",
+          "from": "user",
+          "verified": [
+            "opencode:opencode-go/hy4-flash-free@high"
+          ]
+        }
+      },
+      "designer": {
+        "use": [
+          "claude:claude-opus-5-5@high"
+        ],
+        "fallback": [
+          "claude:claude-sonnet-5-5@medium",
+          "omp"
+        ],
+        "learned": {
+          "at": "2026-11-28T13:31:57Z",
+          "from": "user",
+          "verified": [
+            "claude:claude-opus-5-5@high"
+          ]
+        }
+      }
+    },
+    "deny": []
+  }
+}
