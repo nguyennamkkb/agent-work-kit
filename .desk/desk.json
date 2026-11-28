@@ -1,7 +1,7 @@
 {
   "version": 2,
   "seq": {
-    "Q": 3,
+    "Q": 4,
     "M": 0,
     "L": 0,
     "P": 0
@@ -145,8 +145,39 @@
       "sha": "d90d818",
       "closed": "2026-11-28",
       "archived": "2026-11-28"
+    },
+    {
+      "id": "Q-4",
+      "kind": "task",
+      "created": "2026-11-28",
+      "last": "2026-11-28",
+      "uses": 1,
+      "status": "done",
+      "prio": "P1",
+      "text": "Fix: installed projects cannot update to the new kit version",
+      "done": "update in an installed project pulls the new kit; tests green",
+      "history": [
+        {
+          "at": "2026-11-28T13:56:23Z",
+          "status": "todo",
+          "note": "added"
+        },
+        {
+          "at": "2026-11-28T13:56:23Z",
+          "status": "doing",
+          "note": "started"
+        },
+        {
+          "at": "2026-11-28T13:58:36Z",
+          "status": "done",
+          "note": "doctor now compares content via sync dry-run (wallpaper: 5 stale files reported, was silent); version 0.3.0; new kit test same-version-stale → update available → update → up to date; npm test 71/71"
+        }
+      ],
+      "proof": "doctor now compares content via sync dry-run (wallpaper: 5 stale files reported, was silent); version 0.3.0; new kit test same-version-stale → update available → update → up to date; npm test 71/71",
+      "closed": "2026-11-28",
+      "archived": "2026-11-28"
     }
   ],
   "leases": {},
-  "updated": "2026-11-28T13:43:29Z"
+  "updated": "2026-11-28T13:58:36Z"
 }

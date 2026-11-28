@@ -1,6 +1,6 @@
 {
   "kit": "agent-work-kit",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "profession": {
     "name": "ios",
     "title": "iOS",
@@ -47,7 +47,7 @@
     "opencode"
   ],
   "installedAt": "2026-11-22T04:38:04.665Z",
-  "updatedAt": "2026-11-28T13:36:51.632Z",
+  "updatedAt": "2026-11-28T13:58:31.272Z",
   "files": {
     "AGENTS.md": {
       "kind": "block",

@@ -1,6 +1,6 @@
 {
   "kit": "agent-work-kit",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "profession": {
     "name": "universal",
     "title": "Universal",
@@ -62,7 +62,7 @@
     "claude"
   ],
   "installedAt": "2026-11-28T13:21:18.211Z",
-  "updatedAt": "2026-11-28T13:36:51.569Z",
+  "updatedAt": "2026-11-28T13:58:31.207Z",
   "files": {
     "AGENTS.md": {
       "kind": "block",

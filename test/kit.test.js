@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import { createHash } from 'node:crypto';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -165,6 +166,17 @@ test('CLI end to end: init --ios, desk, doctor, review, remove', () => {
   assert.equal(cli(root, 'desk').status, 0);
   const doc = cli(root, 'doctor');
   assert.equal(doc.status, 0, doc.stdout);
+  assert.match(doc.stdout, /kit up to date/);
+  // An older kit build with the same version number: the file and its manifest hash both differ from this kit.
+  const man = JSON.parse(read(path.join(root, '.agentkit.json')));
+  const rel = '.agentkit/hooks/team.mjs';
+  const old = read(path.join(root, rel)) + '\n// older build\n';
+  fs.writeFileSync(path.join(root, rel), old);
+  man.files[rel].hash = createHash('sha256').update(old).digest('hex').slice(0, man.files[rel].hash.length);
+  fs.writeFileSync(path.join(root, '.agentkit.json'), JSON.stringify(man, null, 2));
+  assert.match(cli(root, 'doctor').stdout, /update available[^\n]*1 kit file\(s\) differ: \.agentkit\/hooks\/team\.mjs/, 'same version, stale files → update available');
+  assert.equal(cli(root, 'update', '-y').status, 0);
+  assert.match(cli(root, 'doctor').stdout, /kit up to date/, 'update brings the files back');
   const p = cli(root, 'desk', 'propose', 'Run lint before commit', '--change', 'add make lint to the done check', '--why', 'lint failed twice');
   assert.equal(p.status, 0, p.stderr);
   const file = fs.readdirSync(D(root, 'review')).find((f) => f.startsWith('P-001'));

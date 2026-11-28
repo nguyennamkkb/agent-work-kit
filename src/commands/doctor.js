@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { makeCtx, loadManifest, kitVersion, MANIFEST } from '../lib/engine.js';
+import { makeCtx, loadManifest, kitVersion, MANIFEST, sync } from '../lib/engine.js';
 import { loadKit } from '../lib/bundle.js';
 import { extractBlock } from '../lib/markers.js';
 import { isPatchApplied } from '../lib/jsonmerge.js';
@@ -27,7 +27,11 @@ export default async function doctor(opts) {
   }
   ok(`${m.profession.title} desk · rules ${m.profession.version} · kit ${m.version} · harness: ${m.harnesses.join(', ') || 'AGENTS.md only'}`);
   const kit = loadKit(m.profession.name);
-  if (m.version !== kitVersion() || m.profession.version !== kit.profession.version) warn(`update available (kit ${kitVersion()}, ${m.profession.name} rules ${kit.profession.version}) — \`npx github:nguyennamkkb/agent-work-kit update\``);
+  // Compare content, not only version numbers: kit files can change while the version stays the same.
+  const behind = sync(makeCtx({ root, harnesses: m.harnesses, profession: m.profession.name }), { dryRun: true }).report.filter((r) => ['create', 'update', 'conflict'].includes(r.action));
+  if (m.version !== kitVersion() || m.profession.version !== kit.profession.version || behind.length)
+    warn(`update available (kit ${m.version} → ${kitVersion()}, ${m.profession.name} rules ${m.profession.version} → ${kit.profession.version}${behind.length ? `, ${behind.length} kit file(s) differ: ${behind.slice(0, 4).map((r) => r.path).join(', ')}${behind.length > 4 ? ', …' : ''}` : ''}) — \`npx github:nguyennamkkb/agent-work-kit update\``);
+  else ok('kit up to date');
 
   let edited = 0;
   for (const [rel, e] of Object.entries(m.files)) {
